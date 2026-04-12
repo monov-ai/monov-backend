@@ -1,0 +1,83 @@
+package com.monovai.domain.auth.service;
+
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import com.monovai.domain.auth.dto.response.LoginUriResponse;
+import com.monovai.domain.auth.dto.response.OAuthUserInformation;
+import com.monovai.domain.auth.dto.response.kakao.KakaoOAuthResponse;
+import com.monovai.domain.auth.dto.response.kakao.KakaoUserInformationResponse;
+import com.monovai.global.client.kakao.KakaoApiFeignClient;
+import com.monovai.global.client.kakao.KakaoOAuthFeignClient;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class KakaoService implements SocialService {
+
+    private final KakaoApiFeignClient kakaoApiFeignClient;
+    private final KakaoOAuthFeignClient kakaoOAuthFeignClient;
+
+    @Value("${kakao.client-id}")
+    private String kakaoClientId;
+
+    @Value("${kakao.redirect-uri}")
+    private String kakaoRedirectUri;
+
+    private static final String KAKAO_AUTH_URI = "https://kauth.kakao.com/oauth/authorize?response_type=code&client_id=";
+    private static final String REDIRECT_URI = "&redirect_uri=";
+
+    @Override
+    public LoginUriResponse getAuthorizationUri() {
+        String uri = KAKAO_AUTH_URI +
+                kakaoClientId +
+                REDIRECT_URI +
+                kakaoRedirectUri;
+
+        return LoginUriResponse.of(uri);
+    }
+
+    @Override
+    public OAuthUserInformation getUserInfo(String code) {
+
+        KakaoOAuthResponse oauth = getOAuthToken(code);
+        log.info("oauth info: {}", oauth);
+        String accessToken = oauth.accessToken();
+        log.info("kakao oauth access token: {}", accessToken);
+
+        return getUserInfoByAccessToken(accessToken);
+
+    }
+
+    @Override
+    public OAuthUserInformation getUserInfoByAccessToken(String accessToken) {
+        try {
+            KakaoUserInformationResponse information = kakaoApiFeignClient.getInformation("Bearer " + accessToken);
+            log.info(information.kakaoAccount().profile().nickname());
+            log.info(information.kakaoAccount().email());
+            return OAuthUserInformation.from(information);
+        } catch (Exception e) {
+            log.error("kakao user data 획득 실패: {}", e.getMessage());
+            throw e;
+        }
+    }
+
+    public KakaoOAuthResponse getOAuthToken(String code) {
+        try {
+            return kakaoOAuthFeignClient.getToken(
+                    "authorization_code",
+                    kakaoClientId,
+                    kakaoRedirectUri,
+                    code
+            );
+        } catch (Exception e) {
+            log.error("kakao oauth token 발급 실패: {}", e.getMessage());
+            throw e;
+        }
+    }
+
+}

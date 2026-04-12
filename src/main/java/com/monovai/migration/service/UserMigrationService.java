@@ -13,6 +13,7 @@ import com.monovai.migration.dto.UserMigrationDto;
 
 import lombok.RequiredArgsConstructor;
 
+/*
 @Service
 @RequiredArgsConstructor
 public class UserMigrationService {
@@ -41,3 +42,4 @@ public class UserMigrationService {
 			.toLocalDateTime();
 	}
 }
+*/
