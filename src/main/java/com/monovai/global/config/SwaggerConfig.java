@@ -25,7 +25,7 @@ import io.swagger.v3.oas.models.servers.Server;
 
 @Configuration
 public class SwaggerConfig {
-    @Value("http://localhost:8080")
+    @Value("https://api.monov-ai.com")
     private String serverUri;
 
     @Bean
