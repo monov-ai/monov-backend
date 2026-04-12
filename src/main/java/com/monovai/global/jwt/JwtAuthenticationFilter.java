@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final List<String> EXCLUDE_URL = Arrays.asList(
+        "/**",
             "/swagger-ui/**",
             "/v3/api-docs/**",
             "/api/v1/auth/login-uri",
