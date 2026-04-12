@@ -1,5 +1,5 @@
 package com.monovai.migration.service;
-
+/*
 import java.util.ArrayList;
 import java.util.List;
 
@@ -85,9 +85,7 @@ public class FirebaseService {
 		return result;
 	}
 
-	/**
-	 * 🔥 Timestamp / Long 혼합 대응 메서드
-	 */
+
 	private Long parseDate(DocumentSnapshot doc, String field) {
 		Object value = doc.get(field);
 
@@ -99,3 +97,4 @@ public class FirebaseService {
 		return null;
 	}
 }
+*/

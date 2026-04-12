@@ -2,6 +2,7 @@ package com.monovai.migration.dto.converter;
 
 import java.time.ZoneId;
 import java.util.Map;
+/*
 
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.DocumentSnapshot;
@@ -28,3 +29,4 @@ public class UserOnboardingConverter {
 			.build();
 	}
 }
+*/

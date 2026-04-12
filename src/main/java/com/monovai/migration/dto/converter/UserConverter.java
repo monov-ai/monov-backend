@@ -6,8 +6,7 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
-import com.google.cloud.Timestamp;
-import com.google.cloud.firestore.DocumentSnapshot;
+/*
 import com.monovai.domain.user.entity.User;
 
 import lombok.Builder;
@@ -48,3 +47,4 @@ public class UserConverter {
 			.toLocalDateTime();
 	}
 }
+*/

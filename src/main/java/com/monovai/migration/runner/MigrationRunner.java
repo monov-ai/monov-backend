@@ -4,7 +4,7 @@ import java.util.List;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
-
+/*
 import com.monovai.migration.dto.TemplateMigrationDto;
 import com.monovai.migration.dto.UserMigrationDto;
 import com.monovai.migration.service.FirebaseService;
@@ -40,3 +40,4 @@ public class MigrationRunner implements CommandLineRunner {
 		System.out.println("✅ Migration 완료");
 	}
 }
+*/
