@@ -24,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SecurityConfig {
     private static final String[] WHITELIST = {
+        "/**",
             "/swagger-ui/**",
             "/v3/api-docs/**",
             "/api/v1/auth/login-uri",
