@@ -14,8 +14,8 @@ import com.monovai.domain.auth.dto.response.LoginUriResponse;
 import com.monovai.domain.auth.dto.response.OAuthUserInformation;
 import com.monovai.domain.auth.dto.response.google.GoogleOAuthResponse;
 import com.monovai.domain.auth.dto.response.google.GoogleUserInformation;
-import com.monovai.global.client.google.GoogleApiFeignClient;
-import com.monovai.global.client.google.GoogleOAuthFeignClient;
+import com.monovai.external.google.GoogleApiFeignClient;
+import com.monovai.external.google.GoogleOAuthFeignClient;
 import com.monovai.global.error.code.ErrorCode;
 import com.monovai.global.error.exception.BusinessException;
 

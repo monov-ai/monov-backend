@@ -1,4 +1,4 @@
-package com.monovai.global.jwt.domain.service;
+package com.monovai.global.jwt.service;
 
 
 import org.springframework.stereotype.Service;
@@ -9,7 +9,7 @@ import com.monovai.global.error.exception.BadRequestException;
 import com.monovai.global.jwt.core.JwtExtractor;
 import com.monovai.global.jwt.core.JwtProvider;
 import com.monovai.global.jwt.core.JwtValidator;
-import com.monovai.global.jwt.domain.entity.Token;
+import com.monovai.infrastructure.redis.entity.Token;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +49,7 @@ public class JwtService {
         String refreshToken = jwtExtractor.extractToken(authorizationHeader);
         jwtValidator.validateRefreshToken(refreshToken); // 또는 refresh 전용 validator 추가 가능
         Long userId = jwtExtractor.extractUserId(refreshToken);
-        String role = jwtExtractor.extractRole(authorizationHeader);
+        String role = jwtExtractor.extractRole(refreshToken);
 
         Token findRefreshToken = tokenService.getTokenByUserId(userId);
 

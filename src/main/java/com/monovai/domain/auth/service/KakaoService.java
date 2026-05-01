@@ -8,8 +8,8 @@ import com.monovai.domain.auth.dto.response.LoginUriResponse;
 import com.monovai.domain.auth.dto.response.OAuthUserInformation;
 import com.monovai.domain.auth.dto.response.kakao.KakaoOAuthResponse;
 import com.monovai.domain.auth.dto.response.kakao.KakaoUserInformationResponse;
-import com.monovai.global.client.kakao.KakaoApiFeignClient;
-import com.monovai.global.client.kakao.KakaoOAuthFeignClient;
+import com.monovai.external.kakao.KakaoApiFeignClient;
+import com.monovai.external.kakao.KakaoOAuthFeignClient;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

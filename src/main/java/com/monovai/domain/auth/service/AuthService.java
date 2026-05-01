@@ -16,8 +16,8 @@ import com.monovai.domain.user.entity.User;
 import com.monovai.domain.user.entity.enums.Role;
 import com.monovai.domain.user.repository.UserRepository;
 import com.monovai.domain.user.service.UserService;
-import com.monovai.global.jwt.domain.service.JwtService;
-import com.monovai.global.jwt.domain.service.TokenService;
+import com.monovai.global.jwt.service.JwtService;
+import com.monovai.global.jwt.service.TokenService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
