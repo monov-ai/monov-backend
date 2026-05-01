@@ -1,4 +1,4 @@
-package com.monovai.global.jwt.domain.entity;
+package com.monovai.infrastructure.redis.entity;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;

@@ -1,12 +1,12 @@
-package com.monovai.global.jwt.domain.service;
+package com.monovai.global.jwt.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.monovai.global.error.code.ErrorCode;
 import com.monovai.global.error.exception.NotFoundException;
-import com.monovai.global.jwt.domain.entity.Token;
-import com.monovai.global.jwt.domain.repository.TokenRepository;
+import com.monovai.infrastructure.redis.entity.Token;
+import com.monovai.infrastructure.redis.repository.TokenRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

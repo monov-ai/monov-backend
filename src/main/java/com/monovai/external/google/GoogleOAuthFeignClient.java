@@ -1,4 +1,4 @@
-package com.monovai.global.client.google;
+package com.monovai.external.google;
 
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.MediaType;
