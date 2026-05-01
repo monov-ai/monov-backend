@@ -28,6 +28,9 @@ public enum ErrorCode {
 	NOTIFICATION_READ_FORBIDDEN(HttpStatus.BAD_REQUEST, "E400017", "다른 사람의 알림을 읽을 수 없습니다."),
 	ALREADY_REPORTED(HttpStatus.BAD_REQUEST, "E400018", "이미 신고한 대상입니다."),
 	ALREADY_PROCESSED_REPORT(HttpStatus.BAD_REQUEST, "E400019", "이미 처리된 신고입니다."),
+	INVALID_STYLE(HttpStatus.BAD_REQUEST, "E400020", "스타일이 유효하지 않습니다."),
+	STUDIO_PRODUCT_IMAGE_REQUIRED(HttpStatus.BAD_REQUEST, "E400021", "스튜디오 스타일은 제품 이미지가 필요합니다."),
+	GPT_RESPONSE_INVALID(HttpStatus.BAD_GATEWAY, "E502001", "추천 결과 형식이 올바르지 않습니다."),
 
 	/* 401 */
 
@@ -55,6 +58,7 @@ public enum ErrorCode {
 	NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "E404008", "알림이 존재하지 않습니다"),
 	REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "E404009", "신고가 존재하지 않습니다"),
 	SOCIAL_TYPE_NOT_FOUND(HttpStatus.NOT_FOUND, "E404010", "소셜 로그인 타입이 존재하지 않습니다"),
+	RECOMMENDATION_NOT_FOUND(HttpStatus.NOT_FOUND, "E404011", "추천 기록을 찾을 수 없습니다"),
 
 
 	/* 409 CONFLICT */
