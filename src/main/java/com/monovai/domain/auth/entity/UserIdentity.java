@@ -1,17 +1,19 @@
 package com.monovai.domain.auth.entity;
 
 import com.monovai.domain.auth.entity.enums.AuthProvider;
+import com.monovai.domain.user.entity.User;
 import com.monovai.global.common.entity.BaseTimeEntity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -29,8 +31,9 @@ public class UserIdentity extends BaseTimeEntity {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(nullable = false)
-	private Long userId;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "user_id", nullable = false)
+	private User user;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
@@ -39,9 +42,9 @@ public class UserIdentity extends BaseTimeEntity {
 	@Column(nullable = false)
 	private String providerUserId;
 
-	public static UserIdentity create(Long userId, AuthProvider provider, String providerUserId) {
+	public static UserIdentity create(User user, AuthProvider provider, String providerUserId) {
 		return UserIdentity.builder()
-			.userId(userId)
+			.user(user)
 			.provider(provider)
 			.providerUserId(providerUserId)
 			.build();
