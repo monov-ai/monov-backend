@@ -1,0 +1,60 @@
+# /etc/nginx/sites-available/monov-ai (또는 호스트의 기존 server block 에 통합)
+#
+# 사용자가 이미 SSL/Certbot 으로 server block 만들어두셨다면, 다음 두 가지만 추가하시면 됩니다:
+#   1. http { ... } 컨텍스트에 `include /etc/nginx/conf.d/upstream-active.conf;`
+#      (단, conf.d 자동 include 라면 conf.d 에 심볼릭 링크만 두면 됨)
+#   2. 기존 server block 의 location / 부분을 아래로 교체
+
+# === upstream — 심볼릭 링크 한 쪽만 활성 ===
+# /etc/nginx/conf.d/upstream-active.conf -> /etc/nginx/upstream-blue.conf
+# (deploy.sh 가 이 심볼릭 링크를 toggle)
+
+# === server block 예시 ===
+server {
+    listen 443 ssl http2;
+    server_name api.monov-ai.com;
+
+    # === Certbot 이 이미 설정한 SSL 부분 ===
+    ssl_certificate     /etc/letsencrypt/live/api.monov-ai.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.monov-ai.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # 큰 이미지 업로드는 프론트가 S3 직접 PUT 하니까 백엔드는 작은 JSON 만 받음
+    client_max_body_size 5M;
+
+    # API 본문
+    location / {
+        proxy_pass http://monov_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+
+        # GPT/Nanobanana 호출이 길어질 수 있어 timeout 넉넉하게
+        proxy_connect_timeout 30s;
+        proxy_send_timeout    60s;
+        proxy_read_timeout    60s;
+    }
+
+    # 외부에서 actuator 접근 차단 (prometheus 는 docker network 내부에서 scrape)
+    location /actuator {
+        deny all;
+        return 404;
+    }
+
+    # 디버그 컨트롤러 — 운영에서는 차단 권장
+    location /_debug {
+        deny all;
+        return 404;
+    }
+}
+
+# HTTP → HTTPS redirect (이미 있을 가능성)
+server {
+    listen 80;
+    server_name api.monov-ai.com;
+    return 301 https://$host$request_uri;
+}
