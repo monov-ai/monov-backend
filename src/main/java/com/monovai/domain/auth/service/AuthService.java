@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.monovai.domain.auth.dto.request.SignupRequest;
+import com.monovai.domain.auth.dto.response.AuthMeResponse;
 import com.monovai.domain.auth.dto.response.AuthResponse;
 import com.monovai.domain.auth.dto.response.JwtResponse;
 import com.monovai.domain.auth.dto.response.OAuthUserInformation;
@@ -104,6 +105,27 @@ public class AuthService {
         userRepository.delete(user);
 
         log.info("정상적으로 탈퇴되었습니다");
+    }
+
+    /**
+     * 로그아웃 — refresh token 무효화. access token 은 만료될 때까지 유효 (blacklist 없음).
+     */
+    @Transactional
+    public void logout(final Long userId) {
+        tokenService.deleteRefreshToken(userId);
+        log.info("logout userId={}", userId);
+    }
+
+    /**
+     * 현재 인증된 사용자 정보. 미인증 시 user=null 응답.
+     */
+    public AuthMeResponse getMe(final Long userId) {
+        if (userId == null) {
+            return AuthMeResponse.anonymous();
+        }
+        return userRepository.findById(userId)
+            .map(AuthMeResponse::of)
+            .orElseGet(AuthMeResponse::anonymous);
     }
 
 }

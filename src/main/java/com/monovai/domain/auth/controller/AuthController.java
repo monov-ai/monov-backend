@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.monovai.domain.auth.dto.request.LoginUriRequest;
 import com.monovai.domain.auth.dto.request.SignInRequest;
 import com.monovai.domain.auth.dto.request.SignupRequest;
+import com.monovai.domain.auth.dto.response.AuthMeResponse;
 import com.monovai.domain.auth.dto.response.AuthResponse;
 import com.monovai.domain.auth.dto.response.JwtResponse;
 import com.monovai.domain.auth.dto.response.LoginUriResponse;
@@ -87,5 +88,25 @@ public class AuthController {
 	) {
 		authService.withdraw(userId);
 		return ResponseEntity.ok(SuccessResponse.of(SuccessCode.SUCCESS_DELETE));
+	}
+
+	@PostMapping("/logout")
+	@Operation(summary = "로그아웃", description = "refresh token 을 무효화합니다 (access token 은 만료까지 유효).")
+	public ResponseEntity<SuccessResponse<Void>> logout(
+		@AuthenticationPrincipal Long userId
+	) {
+		authService.logout(userId);
+		return ResponseEntity.ok(SuccessResponse.of(SuccessCode.SUCCESS_LOGOUT));
+	}
+
+	@DisableSwaggerSecurity
+	@GetMapping("/me")
+	@Operation(summary = "내 정보 조회",
+		description = "Authorization 헤더가 있으면 인증된 사용자 정보, 없거나 무효면 user=null.")
+	public ResponseEntity<SuccessResponse<AuthMeResponse>> me(
+		@AuthenticationPrincipal Long userId
+	) {
+		return ResponseEntity.ok(
+			SuccessResponse.of(SuccessCode.SUCCESS_FETCH, authService.getMe(userId)));
 	}
 }

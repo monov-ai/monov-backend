@@ -1,0 +1,29 @@
+# Build artifacts
+build/
+.gradle/
+out/
+*.iml
+.idea/
+
+# Local dev files
+.env
+.env.local
+*.log
+/logs/
+
+# VCS
+.git/
+.gitignore
+
+# Docs / Tests
+docs/
+*.md
+!HELP.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local config (운영은 application-prod.yml + 환경변수)
+src/main/resources/application.yml
+src/main/resources/firebase-key.json

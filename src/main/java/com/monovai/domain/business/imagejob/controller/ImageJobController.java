@@ -18,7 +18,7 @@ import com.monovai.global.error.dto.SuccessResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -29,7 +29,8 @@ public class ImageJobController {
 	private final ImageJobService imageJobService;
 
 	@PostMapping("/generate-image")
-	@Operation(summary = "이미지 생성 잡 시작", description = "선택된 추천 + 옵션으로 Nanobanana 이미지 생성 잡을 시작합니다. jobId 반환.")
+	@Operation(summary = "이미지 생성 잡 시작",
+		description = "선택된 추천 + 옵션으로 Nanobanana 이미지 생성 잡을 시작합니다. jobId 반환.")
 	public ResponseEntity<SuccessResponse<ImageJobCreatedResponse>> generate(
 		@AuthenticationPrincipal Long userId,
 		@Valid @RequestBody GenerateImageRequest request
@@ -39,10 +40,11 @@ public class ImageJobController {
 	}
 
 	@GetMapping("/image-job")
-	@Operation(summary = "이미지 잡 상태 조회", description = "jobId 로 잡 상태와 연관된 모든 edits 를 함께 반환합니다 (v1.1).")
+	@Operation(summary = "이미지 잡 상태 조회",
+		description = "jobId(slug)로 잡 상태와 연관된 모든 edits 를 함께 반환합니다 (v1.1).")
 	public ResponseEntity<SuccessResponse<ImageJobResponse>> get(
 		@AuthenticationPrincipal Long userId,
-		@RequestParam @NotNull Long jobId
+		@RequestParam @NotBlank String jobId
 	) {
 		return ResponseEntity.ok(
 			SuccessResponse.of(SuccessCode.SUCCESS_FETCH, imageJobService.get(userId, jobId)));
