@@ -24,6 +24,5 @@ docs/
 .DS_Store
 Thumbs.db
 
-# Local config (운영은 application-prod.yml + 환경변수)
-src/main/resources/application.yml
+# firebase-key.json 은 이미지에 박지 않음 (현재 MigrationRunner 비활성)
 src/main/resources/firebase-key.json
