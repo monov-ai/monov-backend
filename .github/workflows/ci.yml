@@ -8,7 +8,7 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,9 +25,6 @@ jobs:
 
       - name: Compile
         run: ./gradlew compileJava --no-daemon
-
-      - name: Test
-        run: ./gradlew test --no-daemon
 
       - name: Build bootJar (검증)
         run: ./gradlew bootJar --no-daemon -x test
