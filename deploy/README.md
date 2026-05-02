@@ -25,7 +25,7 @@
 **EC2 에 시크릿 파일 안 둡니다.** GitHub Repository Secret `APPLICATION` 하나에 `application.yml` 전체를 넣어두고, CI 가 빌드 직전에 풀어서 이미지에 박아버립니다.
 
 ```
-git push main
+develop 브랜치에 머지 (push)
    ↓
 GitHub Actions (cd.yml)
    ├─ build-and-push job
@@ -103,7 +103,7 @@ ubuntu ALL=(ALL) NOPASSWD: /usr/bin/ln, /usr/sbin/nginx, /usr/bin/systemctl relo
 ```
 
 ### 6. 첫 배포는 GitHub Actions 한 번 돌리면 됨
-- `git push main` 또는 Actions 탭에서 "Run workflow"
+- develop 에 머지 (또는 Actions 탭에서 "Run workflow")
 - workflow 가 yml 박힌 이미지 build/push → EC2 에서 pull → blue-green 전환
 - `deploy.sh` 가 첫 실행 시 `.active` 파일 없으면 blue 로 시작
 
@@ -116,7 +116,7 @@ DOCKERHUB_USERNAME=woals2840 docker compose up -d redis prometheus grafana
 ## 일상 운영
 
 ### 배포
-- **자동**: `git push main` → Actions 자동 실행
+- **자동**: develop 브랜치에 PR 머지 → Actions 자동 실행
 - **수동 (Actions UI)**: Actions 탭 → "CD" → "Run workflow"
 - **수동 (EC2 직접)**: 이미지가 이미 push 된 상태라면
   ```bash
