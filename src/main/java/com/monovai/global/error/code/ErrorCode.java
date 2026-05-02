@@ -30,6 +30,17 @@ public enum ErrorCode {
 	ALREADY_PROCESSED_REPORT(HttpStatus.BAD_REQUEST, "E400019", "이미 처리된 신고입니다."),
 	INVALID_STYLE(HttpStatus.BAD_REQUEST, "E400020", "스타일이 유효하지 않습니다."),
 	STUDIO_PRODUCT_IMAGE_REQUIRED(HttpStatus.BAD_REQUEST, "E400021", "스튜디오 스타일은 제품 이미지가 필요합니다."),
+	INVALID_ANGLE(HttpStatus.BAD_REQUEST, "E400022", "angle 값이 유효하지 않습니다."),
+	INVALID_LIGHTING(HttpStatus.BAD_REQUEST, "E400023", "lighting 값이 유효하지 않습니다."),
+	INVALID_RATIO(HttpStatus.BAD_REQUEST, "E400024", "ratio 값이 유효하지 않습니다."),
+	RECOMMENDATION_NOT_READY(HttpStatus.BAD_REQUEST, "E400025", "추천이 아직 준비되지 않았습니다."),
+	MISSING_FILE(HttpStatus.BAD_REQUEST, "E400026", "파일이 첨부되지 않았습니다."),
+	FILE_TOO_LARGE(HttpStatus.BAD_REQUEST, "E400027", "파일 크기가 너무 큽니다 (최대 10MB)."),
+	S3_KEY_FORBIDDEN(HttpStatus.FORBIDDEN, "E403004", "해당 파일에 접근 권한이 없습니다."),
+	INVALID_EDIT_MODE(HttpStatus.BAD_REQUEST, "E400028", "edit mode 가 유효하지 않습니다."),
+	EDIT_MODE_INPAINT_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, "E400029", "inpaint mode 는 아직 지원되지 않습니다."),
+	INVALID_EDIT_PARAMS(HttpStatus.BAD_REQUEST, "E400030", "params 값이 mode 에 맞지 않습니다."),
+	BASE_NOT_READY(HttpStatus.CONFLICT, "E409003", "base 의 결과 이미지가 아직 준비되지 않았습니다."),
 	GPT_RESPONSE_INVALID(HttpStatus.BAD_GATEWAY, "E502001", "추천 결과 형식이 올바르지 않습니다."),
 
 	/* 401 */
@@ -59,6 +70,10 @@ public enum ErrorCode {
 	REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "E404009", "신고가 존재하지 않습니다"),
 	SOCIAL_TYPE_NOT_FOUND(HttpStatus.NOT_FOUND, "E404010", "소셜 로그인 타입이 존재하지 않습니다"),
 	RECOMMENDATION_NOT_FOUND(HttpStatus.NOT_FOUND, "E404011", "추천 기록을 찾을 수 없습니다"),
+	RECOMMENDATION_ID_NOT_FOUND(HttpStatus.NOT_FOUND, "E404012", "선택한 추천을 찾을 수 없습니다"),
+	IMAGE_JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "E404013", "이미지 잡을 찾을 수 없습니다"),
+	BASE_NOT_FOUND(HttpStatus.NOT_FOUND, "E404014", "베이스 항목을 찾을 수 없습니다"),
+	IMAGE_EDIT_NOT_FOUND(HttpStatus.NOT_FOUND, "E404015", "수정 항목을 찾을 수 없습니다"),
 
 
 	/* 409 CONFLICT */
