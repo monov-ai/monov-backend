@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main, develop]
   push:
-    branches: ['**', '!main']    # main 은 cd.yml 에서 빌드 — 중복 회피
+    branches: ['**', '!develop']    # develop 은 cd.yml 에서 빌드 — 중복 회피
   workflow_dispatch: {}
 
 jobs:
