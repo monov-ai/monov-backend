@@ -75,5 +75,5 @@ jobs:
             export DOCKERHUB_USERNAME='${{ secrets.DOCKERHUB_USERNAME }}'
             export IMAGE_TAG='${{ github.sha }}'
             export GRAFANA_PASSWORD='${{ secrets.GRAFANA_PASSWORD }}'
-            cd ~/monov-ai
+            cd ~/monov-backend
             ./deploy/deploy.sh
