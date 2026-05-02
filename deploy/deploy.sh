@@ -48,15 +48,15 @@ echo ""
 echo "🚀 app-$INACTIVE 시작..."
 docker compose up -d --no-deps "app-$INACTIVE"
 
-# 3. healthcheck 대기 (최대 120초)
+# 3. healthcheck 대기 (최대 240초 — JPA DDL + 빈 초기화 여유)
 echo ""
 echo "⏳ app-$INACTIVE healthcheck 대기..."
-for i in $(seq 1 60); do
+for i in $(seq 1 120); do
     if curl -fs "http://127.0.0.1:${INACTIVE_PORT}/actuator/health/readiness" > /dev/null 2>&1; then
         echo "✅ app-$INACTIVE ready (${i}회 시도)"
         break
     fi
-    if [ $i -eq 60 ]; then
+    if [ $i -eq 120 ]; then
         echo "❌ app-$INACTIVE healthcheck 실패"
         echo "===== 최근 로그 ====="
         docker logs "monov-app-${INACTIVE}" --tail 80
