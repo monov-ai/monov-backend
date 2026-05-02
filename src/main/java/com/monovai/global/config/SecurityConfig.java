@@ -1,6 +1,5 @@
 package com.monovai.global.config;
 
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -23,63 +22,51 @@ import lombok.RequiredArgsConstructor;
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {
-    private static final String[] WHITELIST = {
-        "/**",
-            "/swagger-ui/**",
-            "/v3/api-docs/**",
-            "/api/v1/auth/login-uri",
-            "/api/v1/auth/login",
-            "/api/v1/auth/sign-up",
-            "/api/v1/auth/sign-in",
-            "/api/v1/auth/reissue",
-            "/api/v1/university/**",
-            "/api/v1/major/**",
-            "/actuator/**",
-            "/api/v1/user/validation",
-            "/apple/callback",
-        "/api/v1/**"
-    };
 
+	/** 인증 없이 접근 가능한 경로. 진짜 public 만 명시. */
+	private static final String[] PUBLIC_PATHS = {
+		// 인프라
+		"/actuator/health",
+		"/actuator/health/**",
+		"/actuator/prometheus",   // 호스트 nginx 가 외부 차단, 내부 prometheus 만 scrape
+		"/v3/api-docs/**",
+		"/swagger-ui/**",
+		// 인증 자체에 필요한 엔드포인트
+		"/auth/login-uri",
+		"/auth/sign-in",
+		"/auth/sign-up",
+		"/auth/reissue",
+		"/auth/me",
+		// 디버그 (운영 전 제거 또는 @Profile("debug") 격리)
+		"/_debug/**"
+	};
 
-    private final JwtExtractor jwtExtractor;
-    private final JwtValidator jwtValidator;
-    private final ObjectMapper objectMapper;
-    private final CorsConfig corsConfig;
+	private final JwtExtractor jwtExtractor;
+	private final JwtValidator jwtValidator;
+	private final ObjectMapper objectMapper;
+	private final CorsConfig corsConfig;
 
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        // csrf disable
-        http
-                .csrf(AbstractHttpConfigurer::disable);
+	@Bean
+	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+		http
+			.csrf(AbstractHttpConfigurer::disable)
+			.formLogin(AbstractHttpConfigurer::disable)
+			.httpBasic(AbstractHttpConfigurer::disable)
+			.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
-        // Form 로그인 방식 disable
-        http
-                .formLogin(AbstractHttpConfigurer::disable);
+		http.authorizeHttpRequests(auth -> auth
+			.requestMatchers(HttpMethod.OPTIONS).permitAll()
+			.requestMatchers(PUBLIC_PATHS).permitAll()
+			.requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+			.requestMatchers("/business/**").hasRole("ADMIN")   // /business 도메인은 관리자 전용 (시연용)
+			.anyRequest().authenticated()
+		);
 
-        // http basic 인증 방식 disable
-        http
-                .httpBasic(AbstractHttpConfigurer::disable);
+		http
+			.addFilter(corsConfig.corsFilter())
+			.addFilterBefore(new JwtAuthenticationFilter(jwtExtractor, jwtValidator), UsernamePasswordAuthenticationFilter.class)
+			.addFilterBefore(new ExceptionHandlerFilter(objectMapper), JwtAuthenticationFilter.class);
 
-        // 경로별 인가 작업
-        http
-                .authorizeHttpRequests((auth) -> auth
-                        .requestMatchers(HttpMethod.OPTIONS)
-                        .permitAll() //OPTION추가
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                        .requestMatchers(WHITELIST)
-                        .permitAll()
-                        .anyRequest()
-                        .authenticated());
-
-        http
-                .addFilter(corsConfig.corsFilter())
-                .addFilterBefore(new JwtAuthenticationFilter(jwtExtractor, jwtValidator), UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(new ExceptionHandlerFilter(objectMapper), JwtAuthenticationFilter.class);
-        // 세션 설정
-        http
-                .sessionManagement((session) -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-
-        return http.build();
-    }
+		return http.build();
+	}
 }

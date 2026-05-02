@@ -8,8 +8,10 @@ import org.springframework.stereotype.Service;
 
 import io.awspring.cloud.s3.S3Template;
 import lombok.RequiredArgsConstructor;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetUrlRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +21,32 @@ public class S3Service {
 
     @Value("${spring.cloud.aws.s3.bucket}")
     private String bucketName;
+
+    /**
+     * 바이트 배열을 S3 에 업로드. 반환은 객체의 S3 key (URL 아님).
+     * URL 이 필요하면 호출자가 별도로 getPreSignedUrlForDownload 호출.
+     */
+    public String uploadBytes(String key, byte[] data, String contentType) {
+        PutObjectRequest request = PutObjectRequest.builder()
+            .bucket(bucketName)
+            .key(key)
+            .contentType(contentType)
+            .build();
+        try {
+            s3Client.putObject(request, RequestBody.fromBytes(data));
+        } catch (Exception e) {
+            throw new RuntimeException("S3 업로드 실패: " + key, e);
+        }
+        return key;
+    }
+
+    /**
+     * 임의 TTL 의 조회용 presigned URL.
+     */
+    public String getPreSignedUrlForDownload(String key, Duration ttl) {
+        URL preSignedUrl = s3Template.createSignedGetURL(bucketName, key, ttl);
+        return preSignedUrl.toString();
+    }
 
     /**
      * S3에서 파일을 업로드하기 위한 Presigned URL 생성
