@@ -1,18 +1,21 @@
 package com.monovai.domain.business.edit.dto.request;
 
-import com.monovai.domain.business.edit.entity.enums.EditType;
+import com.monovai.domain.business.edit.entity.value.EditParams;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 public record EditImageRequest(
-	@NotNull(message = "기준 ID 는 필수입니다.")
-	Long baseId,
+	@NotBlank(message = "jobId 는 필수입니다.")
+	String jobId,
 
-	@NotNull(message = "수정 타입은 필수입니다.")
-	EditType editType,
+	@NotBlank(message = "baseId 는 필수입니다.")
+	String baseId,
 
-	@NotBlank(message = "프롬프트는 필수입니다.")
-	String prompt
+	@NotBlank(message = "mode 는 필수입니다.")
+	String mode,
+
+	@NotNull(message = "params 는 필수입니다.")
+	EditParams params
 ) {
 }
