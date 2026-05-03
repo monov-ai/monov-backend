@@ -37,7 +37,7 @@ import lombok.RequiredArgsConstructor;
  * 운영 배포 전 반드시 제거 또는 @Profile("debug") 로 격리.
  */
 @RestController
-@RequestMapping("/_debug")
+@RequestMapping("/api/v1/_debug")
 @RequiredArgsConstructor
 public class BusinessDebugController {
 
