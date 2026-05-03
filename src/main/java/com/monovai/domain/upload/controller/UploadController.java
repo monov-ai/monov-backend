@@ -21,7 +21,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/uploads")
+@RequestMapping("/api/v1/uploads")
 @RequiredArgsConstructor
 public class UploadController {
 

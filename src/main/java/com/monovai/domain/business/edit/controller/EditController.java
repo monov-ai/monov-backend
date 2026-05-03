@@ -18,7 +18,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/business")
+@RequestMapping("/api/v1/business")
 @RequiredArgsConstructor
 public class EditController {
 
