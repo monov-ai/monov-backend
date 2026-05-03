@@ -75,9 +75,9 @@ public class AuthController {
 			SuccessResponse.of(SuccessCode.SUCCESS_CREATE, authService.register(authorization, request)));
 	}
 
-	@DisableSwaggerSecurity
 	@GetMapping(value = "/reissue")
-	@Operation(summary = "Access Token 재발급", description = "Refresh Token을 통해 Access Token을 재발급합니다.")
+	@Operation(summary = "Access Token 재발급",
+		description = "Refresh Token 을 Authorization: Bearer <refreshToken> 으로 보내면 새 access token 을 발급합니다.")
 	public ResponseEntity<SuccessResponse<JwtResponse>> processReissue(
 		@RequestHeader("Authorization") @NotEmpty(message = "해당 api에는 authorization 헤더가 필수입니다.") String authorization
 	) {
@@ -103,7 +103,6 @@ public class AuthController {
 		return ResponseEntity.ok(SuccessResponse.of(SuccessCode.SUCCESS_LOGOUT));
 	}
 
-	@DisableSwaggerSecurity
 	@GetMapping("/me")
 	@Operation(summary = "내 정보 조회",
 		description = "Authorization 헤더가 있으면 인증된 사용자 정보, 없거나 무효면 user=null.")
