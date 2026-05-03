@@ -1,5 +1,8 @@
 package com.monovai.domain.auth.controller;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -55,7 +58,8 @@ public class AuthController {
 		SocialType socialType = SocialType.from(request.socialType());
 		SocialService socialService = authService.getSocialServiceByType(socialType);
 
-		OAuthUserInformation userInfo = socialService.getUserInfo(request.code());
+		String code = URLDecoder.decode(request.code(), StandardCharsets.UTF_8).trim();
+		OAuthUserInformation userInfo = socialService.getUserInfo(code);
 
 		return ResponseEntity.ok(SuccessResponse.of(SuccessCode.SUCCESS_FETCH, authService.login(userInfo)));
 	}
