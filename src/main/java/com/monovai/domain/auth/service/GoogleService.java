@@ -57,9 +57,8 @@ public class GoogleService implements SocialService{
 
         GoogleOAuthResponse oauth = getOAuthToken(code);
         log.info("oauth info: {}", oauth);
-        String accessToken = oauth.accessToken();
-        log.info("google oauth access token: {}", accessToken);
-        return getUserInfoByAccessToken(accessToken);
+        String idToken = oauth.idToken();
+        return getUserInfoByIdToken(idToken);
     }
 
     @Override
