@@ -47,7 +47,7 @@ public class GoogleService implements SocialService{
                 "?client_id=" + googleClientId +
                 "&redirect_uri=" + googleRedirectUri +
                 "&response_type=code" +
-                "&scope=openid%20email%20profile";
+                "&scope=openid%20email%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile";
 
         return LoginUriResponse.of(uri);
     }
