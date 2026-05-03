@@ -55,7 +55,7 @@ public class AuthController {
 		SocialType socialType = SocialType.from(request.socialType());
 		SocialService socialService = authService.getSocialServiceByType(socialType);
 
-		OAuthUserInformation userInfo = socialService.getUserInfoByAccessToken(request.accessToken());
+		OAuthUserInformation userInfo = socialService.getUserInfo(request.code());
 
 		return ResponseEntity.ok(SuccessResponse.of(SuccessCode.SUCCESS_FETCH, authService.login(userInfo)));
 	}
