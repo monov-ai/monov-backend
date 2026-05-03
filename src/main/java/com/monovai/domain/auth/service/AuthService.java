@@ -50,6 +50,7 @@ public class AuthService {
 
     private AuthResponse handleExistingUser(final User user) {
         JwtResponse jwtResponse = jwtService.issueToken(user.getId(), user.getRole().name());
+        tokenService.saveRefreshToken(user.getId(), jwtResponse.refreshToken());
         return AuthResponse.ofRegisteredUser(user.getId(), user.getNickname(), jwtResponse);
     }
 
