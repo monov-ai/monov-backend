@@ -60,9 +60,9 @@ public class AuthController {
 		return ResponseEntity.ok(SuccessResponse.of(SuccessCode.SUCCESS_FETCH, authService.login(userInfo)));
 	}
 
-	@DisableSwaggerSecurity
 	@PostMapping(value = "/sign-up")
-	@Operation(summary = "회원 가입", description = "회원 가입을 진행합니다.")
+	@Operation(summary = "회원 가입",
+		description = "sign-in 응답으로 받은 preSignupToken 을 Authorization: Bearer <token> 으로 보내야 합니다.")
 	public ResponseEntity<SuccessResponse<SignUpResponse>> processSignup(
 		@RequestHeader("Authorization") @NotEmpty(message = "임시 토큰이 누락되었습니다.") String authorization,
 		@Valid @RequestBody SignupRequest request
