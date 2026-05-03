@@ -32,13 +32,13 @@ public class SecurityConfig {
 		"/v3/api-docs/**",
 		"/swagger-ui/**",
 		// 인증 자체에 필요한 엔드포인트
-		"/auth/login-uri",
-		"/auth/sign-in",
-		"/auth/sign-up",
-		"/auth/reissue",
-		"/auth/me",
+		"/api/v1/auth/login-uri",
+		"/api/v1/auth/sign-in",
+		"/api/v1/auth/sign-up",
+		"/api/v1/auth/reissue",
+		"/api/v1/auth/me",
 		// 디버그 (운영 전 제거 또는 @Profile("debug") 격리)
-		"/_debug/**"
+		"/api/v1/_debug/**"
 	};
 
 	private final JwtExtractor jwtExtractor;
@@ -58,7 +58,7 @@ public class SecurityConfig {
 			.requestMatchers(HttpMethod.OPTIONS).permitAll()
 			.requestMatchers(PUBLIC_PATHS).permitAll()
 			.requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-			.requestMatchers("/business/**").hasRole("ADMIN")   // /business 도메인은 관리자 전용 (시연용)
+			.requestMatchers("/api/v1/business/**").hasRole("ADMIN")   // /business 도메인은 관리자 전용 (시연용)
 			.anyRequest().authenticated()
 		);
 
