@@ -28,11 +28,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	private static final String BEARER_PREFIX = "Bearer ";
 
-	/** filter 자체를 건너뛰어도 안전한 경로 (swagger / actuator). 인증 게이트는 SecurityConfig 가 별도 처리. */
+	/** filter 자체를 건너뛰어도 안전한 경로.
+	 *  - swagger / actuator: 인프라
+	 *  - sign-in / login-uri: 공개 (토큰 무관)
+	 *  - sign-up: preSignupToken 은 AuthService 가 별도 검증
+	 *  - reissue: refreshToken 흐름 별도
+	 *  인증이 필요한 /api/v1/auth/me 등은 여기서 제외해서 필터가 동작하도록. */
 	private static final List<String> SKIP_PATHS = Arrays.asList(
 		"/swagger-ui/**",
 		"/v3/api-docs/**",
-		"/actuator/**"
+		"/actuator/**",
+		"/api/v1/auth/sign-in",
+		"/api/v1/auth/sign-up",
+		"/api/v1/auth/login-uri",
+		"/api/v1/auth/reissue"
 	);
 
 	private static final PathMatcher MATCHER = new AntPathMatcher();
