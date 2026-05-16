@@ -25,7 +25,11 @@ public record RecommendationDetailResponse(
 		String productImageUrl,
 		String productImagePath,
 		String referenceImageUrl,
-		String referenceImagePath
+		String referenceImagePath,
+		List<String> productImageUrls,
+		List<String> productImagePaths,
+		List<String> referenceImageUrls,
+		List<String> referenceImagePaths
 	) {
 	}
 
@@ -39,7 +43,11 @@ public record RecommendationDetailResponse(
 				e.getProductImageUrl(),
 				e.getProductImagePath(),
 				e.getReferenceImageUrl(),
-				e.getReferenceImagePath()
+				e.getReferenceImagePath(),
+				e.getProductImageUrls(),
+				e.getProductImagePaths(),
+				e.getReferenceImageUrls(),
+				e.getReferenceImagePaths()
 			),
 			e.getStatus().name().toLowerCase(),
 			e.getHeadline(),
