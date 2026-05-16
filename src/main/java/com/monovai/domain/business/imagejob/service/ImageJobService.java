@@ -1,6 +1,7 @@
 package com.monovai.domain.business.imagejob.service;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -12,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.monovai.domain.business.edit.entity.ImageEdit;
+import com.monovai.domain.business.edit.entity.enums.EditMode;
+import com.monovai.domain.business.edit.entity.value.EditParams;
 import com.monovai.domain.business.edit.repository.ImageEditRepository;
 import com.monovai.domain.business.imagejob.dto.request.GenerateImageRequest;
 import com.monovai.domain.business.imagejob.dto.response.ImageJobCreatedResponse;
@@ -47,6 +50,7 @@ public class ImageJobService {
 
 	private static final String SLUG_PREFIX = "bizimg";
 	private static final Duration RESULT_URL_TTL = Duration.ofDays(7);
+	private static final Duration FETCHABLE_URL_TTL = Duration.ofMinutes(60);
 
 	private final ImageJobRepository jobRepository;
 	private final ImageEditRepository editRepository;
@@ -58,12 +62,10 @@ public class ImageJobService {
 
 	@Transactional
 	public ImageJobCreatedResponse create(Long userId, GenerateImageRequest request) {
-		// 1. enum 변환 + 유효성 검증
-		Angle angle = Angle.from(request.angle());
+		Angle angle = (request.angle() == null || request.angle().isBlank()) ? null : Angle.from(request.angle());
 		Lighting lighting = Lighting.from(request.lighting());
 		Ratio ratio = Ratio.from(request.ratio());
 
-		// 2. RecommendationRequest 조회 + 권한 + 상태 검증
 		RecommendationRequest req = requestRepository.findByRequestSlug(request.requestId())
 			.orElseThrow(() -> new NotFoundException(ErrorCode.RECOMMENDATION_NOT_FOUND));
 
@@ -74,14 +76,16 @@ public class ImageJobService {
 			throw new BadRequestException(ErrorCode.RECOMMENDATION_NOT_READY);
 		}
 
-		// 3. recommendationIds 검증 — request.recommendations 안에 실제로 존재해야 함
-		List<RecommendationItem> selected = filterSelectedRecommendations(req, request.recommendationIds());
+		List<String> pickedIds = request.normalizedRecommendationIds();
+		if (pickedIds.isEmpty()) {
+			throw new BadRequestException(ErrorCode.MISSING_PARAMETER);
+		}
 
-		// 4. User 조회
+		List<RecommendationItem> selected = filterSelectedRecommendations(req, pickedIds);
+
 		User user = userRepository.findById(userId)
 			.orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
 
-		// 5. ImageJob 생성 (PENDING) + variants 스냅샷
 		ImageJob job = ImageJob.create(
 			slugGenerator.generate(SLUG_PREFIX), user, req, angle, lighting, ratio
 		);
@@ -95,7 +99,6 @@ public class ImageJobService {
 		}
 		job = jobRepository.save(job);
 
-		// 6. 비동기 워커 트리거 (트랜잭션 커밋 후에 처리됨)
 		eventPublisher.publishEvent(new ImageJobCreatedEvent(job.getId()));
 
 		log.info("[ImageJobService] created jobId={} variants={}", job.getJobSlug(), job.getVariants().size());
@@ -112,7 +115,6 @@ public class ImageJobService {
 
 		List<ImageEdit> edits = editRepository.findAllByRootJob_IdOrderByCreatedAtAsc(job.getId());
 
-		// variant 결과 — 매 호출마다 7일짜리 presigned URL 새로 발급
 		Map<Long, String> variantUrls = new HashMap<>();
 		for (ImageJobVariant v : job.getVariants()) {
 			if (v.getResultS3Key() != null) {
@@ -121,18 +123,64 @@ public class ImageJobService {
 			}
 		}
 
-		// edit 결과/base 도 매번 재서명
-		List<ImageJobResponse.EditView> editViews = edits.stream()
-			.map(e -> {
-				String baseUrl = e.getBaseS3Key() != null
-					? s3Service.getPreSignedUrlForDownload(e.getBaseS3Key(), RESULT_URL_TTL) : null;
-				String resultUrl = e.getResultS3Key() != null
-					? s3Service.getPreSignedUrlForDownload(e.getResultS3Key(), RESULT_URL_TTL) : null;
-				return ImageJobResponse.EditView.of(e, job.getJobSlug(), baseUrl, resultUrl);
-			})
-			.toList();
+		String fetchableImageUrl = signKeyIfPresent(job.getProductImagePath());
+		List<String> fetchableProductImageUrls = signList(job.getProductImagePaths());
+		List<String> fetchableReferenceImageUrls = signList(job.getReferenceImagePaths());
 
-		return ImageJobResponse.of(job, editViews, variantUrls);
+		List<ImageJobResponse.EditView> editViews = new ArrayList<>();
+		for (ImageEdit e : edits) {
+			String baseUrl = e.getBaseS3Key() != null
+				? s3Service.getPreSignedUrlForDownload(e.getBaseS3Key(), RESULT_URL_TTL) : null;
+			String resultUrl = e.getResultS3Key() != null
+				? s3Service.getPreSignedUrlForDownload(e.getResultS3Key(), RESULT_URL_TTL) : null;
+			String baseFetchable = e.getBaseS3Key() != null
+				? s3Service.getPreSignedUrlForDownload(e.getBaseS3Key(), FETCHABLE_URL_TTL) : null;
+			String singleRefFetchable = null;
+			List<String> refFetchableList = new ArrayList<>();
+			EditParams params = e.getParams();
+			if (params != null) {
+				if (params.referenceImagePath() != null && !params.referenceImagePath().isBlank()) {
+					singleRefFetchable = s3Service.getPreSignedUrlForDownload(
+						params.referenceImagePath(), FETCHABLE_URL_TTL);
+				}
+				if (params.referenceImagePaths() != null) {
+					for (String k : params.referenceImagePaths()) {
+						if (k != null && !k.isBlank()) {
+							refFetchableList.add(s3Service.getPreSignedUrlForDownload(k, FETCHABLE_URL_TTL));
+						}
+					}
+				}
+			}
+			editViews.add(ImageJobResponse.EditView.of(
+				e, job.getJobSlug(), job.getUser().getId(),
+				job.getRequest().getRequestSlug(),
+				baseUrl, resultUrl, baseFetchable, singleRefFetchable, refFetchableList
+			));
+
+			// inpaint 처럼 mode 가 INPAINT 면 status 보존 흐름은 worker 가 채움
+			if (e.getMode() == EditMode.INPAINT) {
+				log.debug("[ImageJob/get] INPAINT edit included {}", e.getEditSlug());
+			}
+		}
+
+		return ImageJobResponse.of(job, editViews, variantUrls,
+			fetchableImageUrl, fetchableProductImageUrls, fetchableReferenceImageUrls);
+	}
+
+	private String signKeyIfPresent(String key) {
+		if (key == null || key.isBlank()) return null;
+		return s3Service.getPreSignedUrlForDownload(key, FETCHABLE_URL_TTL);
+	}
+
+	private List<String> signList(List<String> keys) {
+		List<String> out = new ArrayList<>();
+		if (keys == null) return out;
+		for (String k : keys) {
+			if (k != null && !k.isBlank()) {
+				out.add(s3Service.getPreSignedUrlForDownload(k, FETCHABLE_URL_TTL));
+			}
+		}
+		return out;
 	}
 
 	private List<RecommendationItem> filterSelectedRecommendations(
@@ -144,16 +192,13 @@ public class ImageJobService {
 		}
 
 		Set<String> validIds = new HashSet<>();
-		for (RecommendationItem item : all) {
-			validIds.add(item.id());
-		}
+		for (RecommendationItem item : all) validIds.add(item.id());
 		for (String picked : pickedIds) {
 			if (!validIds.contains(picked)) {
 				throw new NotFoundException(ErrorCode.RECOMMENDATION_ID_NOT_FOUND);
 			}
 		}
 
-		// 사용자가 보낸 순서대로 V1, V2, ...
 		return pickedIds.stream()
 			.map(id -> all.stream().filter(r -> id.equals(r.id())).findFirst().orElseThrow())
 			.toList();
