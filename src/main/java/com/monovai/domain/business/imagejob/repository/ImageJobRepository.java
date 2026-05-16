@@ -1,7 +1,9 @@
 package com.monovai.domain.business.imagejob.repository;
 
+import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -13,4 +15,7 @@ public interface ImageJobRepository extends JpaRepository<ImageJob, Long> {
 
 	@EntityGraph(attributePaths = {"variants", "user", "request"})
 	Optional<ImageJob> findWithVariantsByJobSlug(String jobSlug);
+
+	@EntityGraph(attributePaths = {"variants", "request"})
+	List<ImageJob> findAllByUser_IdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 }

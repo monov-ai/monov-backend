@@ -56,7 +56,6 @@ public class ImageJob extends BaseTimeEntity {
 	@JoinColumn(name = "request_id", nullable = false)
 	private RecommendationRequest request;
 
-	// 추천 요청에서 스냅샷한 공통 입력 (snapshot semantics)
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private Style style;
@@ -64,6 +63,7 @@ public class ImageJob extends BaseTimeEntity {
 	@Column(columnDefinition = "TEXT")
 	private String description;
 
+	// v1 호환: 단수형 (배열 첫 번째)
 	@Column(columnDefinition = "TEXT")
 	private String productImageUrl;
 
@@ -73,13 +73,30 @@ public class ImageJob extends BaseTimeEntity {
 	@Column(columnDefinition = "TEXT")
 	private String referenceImageUrl;
 
+	// v2.0: 다중 이미지 스냅샷
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "JSON")
+	private List<String> productImageUrls;
+
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "JSON")
+	private List<String> productImagePaths;
+
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "JSON")
+	private List<String> referenceImageUrls;
+
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "JSON")
+	private List<String> referenceImagePaths;
+
 	@JdbcTypeCode(SqlTypes.JSON)
 	@Column(columnDefinition = "JSON")
 	private CorePoints corePoints;
 
-	// 사용자가 이번 잡에서 선택한 옵션
+	// v2.0: angle 은 선택값 (deprecated). 추천 단계에서 받지 않음.
 	@Enumerated(EnumType.STRING)
-	@Column(nullable = false, length = 20)
+	@Column(length = 20)
 	private Angle angle;
 
 	@Enumerated(EnumType.STRING)
@@ -90,7 +107,6 @@ public class ImageJob extends BaseTimeEntity {
 	@Column(nullable = false, length = 20)
 	private Ratio ratio;
 
-	// 잡 진행 상태
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private JobStatus status;
@@ -102,11 +118,22 @@ public class ImageJob extends BaseTimeEntity {
 	@OrderBy("variantSeq ASC")
 	private List<ImageJobVariant> variants = new ArrayList<>();
 
+	// v2.0: 즐겨찾기 (variantId 또는 editSlug 문자열 배열)
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "JSON")
+	private List<String> favoriteVariantIds = new ArrayList<>();
+
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "JSON")
+	private List<String> favoriteEditIds = new ArrayList<>();
+
 	@Builder(access = AccessLevel.PRIVATE)
 	private ImageJob(
 		String jobSlug, User user, RecommendationRequest request,
 		Style style, String description,
 		String productImageUrl, String productImagePath, String referenceImageUrl,
+		List<String> productImageUrls, List<String> productImagePaths,
+		List<String> referenceImageUrls, List<String> referenceImagePaths,
 		CorePoints corePoints,
 		Angle angle, Lighting lighting, Ratio ratio,
 		JobStatus status
@@ -119,6 +146,10 @@ public class ImageJob extends BaseTimeEntity {
 		this.productImageUrl = productImageUrl;
 		this.productImagePath = productImagePath;
 		this.referenceImageUrl = referenceImageUrl;
+		this.productImageUrls = productImageUrls;
+		this.productImagePaths = productImagePaths;
+		this.referenceImageUrls = referenceImageUrls;
+		this.referenceImagePaths = referenceImagePaths;
 		this.corePoints = corePoints;
 		this.angle = angle;
 		this.lighting = lighting;
@@ -134,18 +165,19 @@ public class ImageJob extends BaseTimeEntity {
 			.jobSlug(jobSlug)
 			.user(user)
 			.request(request)
-			// 추천 요청 정보 스냅샷
 			.style(request.getStyle())
 			.description(request.getDescription())
 			.productImageUrl(request.getProductImageUrl())
 			.productImagePath(request.getProductImagePath())
 			.referenceImageUrl(request.getReferenceImageUrl())
+			.productImageUrls(request.getProductImageUrls())
+			.productImagePaths(request.getProductImagePaths())
+			.referenceImageUrls(request.getReferenceImageUrls())
+			.referenceImagePaths(request.getReferenceImagePaths())
 			.corePoints(request.getCorePoints())
-			// 사용자 옵션
 			.angle(angle)
 			.lighting(lighting)
 			.ratio(ratio)
-			// 초기 상태
 			.status(JobStatus.PENDING)
 			.build();
 	}
@@ -171,9 +203,6 @@ public class ImageJob extends BaseTimeEntity {
 		this.errorMessage = errorMessage;
 	}
 
-	/**
-	 * 모든 variant 처리 후 잡 전체 상태 결정.
-	 */
 	public void finalizeStatus() {
 		long total = variants.size();
 		long succeeded = variants.stream().filter(v -> v.getStatus().name().equals("COMPLETED")).count();
@@ -187,6 +216,24 @@ public class ImageJob extends BaseTimeEntity {
 			this.status = JobStatus.PARTIAL;
 		} else {
 			this.status = JobStatus.FAILED;
+		}
+	}
+
+	public void setFavoriteVariant(String variantId, boolean favorite) {
+		if (this.favoriteVariantIds == null) this.favoriteVariantIds = new ArrayList<>();
+		if (favorite) {
+			if (!this.favoriteVariantIds.contains(variantId)) this.favoriteVariantIds.add(variantId);
+		} else {
+			this.favoriteVariantIds.remove(variantId);
+		}
+	}
+
+	public void setFavoriteEdit(String editId, boolean favorite) {
+		if (this.favoriteEditIds == null) this.favoriteEditIds = new ArrayList<>();
+		if (favorite) {
+			if (!this.favoriteEditIds.contains(editId)) this.favoriteEditIds.add(editId);
+		} else {
+			this.favoriteEditIds.remove(editId);
 		}
 	}
 }
