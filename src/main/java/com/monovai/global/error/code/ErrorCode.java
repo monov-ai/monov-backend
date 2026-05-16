@@ -40,8 +40,31 @@ public enum ErrorCode {
 	INVALID_EDIT_MODE(HttpStatus.BAD_REQUEST, "E400028", "edit mode 가 유효하지 않습니다."),
 	EDIT_MODE_INPAINT_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, "E400029", "inpaint mode 는 아직 지원되지 않습니다."),
 	INVALID_EDIT_PARAMS(HttpStatus.BAD_REQUEST, "E400030", "params 값이 mode 에 맞지 않습니다."),
+	TOO_MANY_IMAGES(HttpStatus.BAD_REQUEST, "E400031", "한 슬롯에는 최대 4장의 이미지만 사용할 수 있어요."),
+	INVALID_ROTATION_TILT(HttpStatus.BAD_REQUEST, "E400032", "rotation 은 -180..180, tilt 는 -90..90 사이의 숫자여야 해요."),
+	INVALID_MASK(HttpStatus.BAD_REQUEST, "E400033", "마스크 이미지가 올바르지 않습니다."),
+	MASK_TOO_LARGE(HttpStatus.BAD_REQUEST, "E400034", "마스크 파일 크기가 4MB 를 초과했습니다."),
+	INVALID_INPAINT_PROMPT(HttpStatus.BAD_REQUEST, "E400035", "프롬프트는 1~2000자 사이여야 해요."),
+	INVALID_FAVORITE_KIND(HttpStatus.BAD_REQUEST, "E400036", "kind 가 유효하지 않아요."),
+	INVALID_MEDIA_TYPE(HttpStatus.BAD_REQUEST, "E400037", "mediaType 이 유효하지 않아요."),
+	HISTORY_LIMIT_INVALID(HttpStatus.BAD_REQUEST, "E400038", "limit 은 1~200 사이의 숫자여야 해요."),
+	IMAGE_URL_REQUIRED(HttpStatus.BAD_REQUEST, "E400039", "imageUrl 이 필요해요."),
+	BRAND_GUIDE_NAME_REQUIRED(HttpStatus.BAD_REQUEST, "E400040", "브랜드 이름은 필수예요."),
+	BRAND_GUIDE_KIND_INVALID(HttpStatus.BAD_REQUEST, "E400041", "kind 는 logo / mood / asset / font 중 하나여야 해요."),
+	BRAND_GUIDE_FILE_TYPE_INVALID(HttpStatus.BAD_REQUEST, "E400042", "지원하지 않는 파일 형식이에요."),
+	BRAND_GUIDE_FILE_TOO_LARGE(HttpStatus.BAD_REQUEST, "E400043", "파일이 25MB 를 초과했어요."),
+	BRAND_GUIDE_FILE_MISSING(HttpStatus.BAD_REQUEST, "E400044", "업로드할 파일이 없어요."),
+	PROXY_URL_REQUIRED(HttpStatus.BAD_REQUEST, "E400045", "url 이 필요해요."),
+	PROXY_URL_INVALID(HttpStatus.BAD_REQUEST, "E400046", "url 이 올바르지 않아요."),
+	PROXY_HOST_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "E400047", "허용되지 않은 호스트예요."),
+	PROXY_HTTPS_REQUIRED(HttpStatus.BAD_REQUEST, "E400048", "HTTPS 만 허용돼요."),
+	INVALID_TEXT_CREATE_PROMPT(HttpStatus.BAD_REQUEST, "E400049", "text_create 의 설명은 1~500자 사이여야 해요."),
 	BASE_NOT_READY(HttpStatus.CONFLICT, "E409003", "base 의 결과 이미지가 아직 준비되지 않았습니다."),
 	GPT_RESPONSE_INVALID(HttpStatus.BAD_GATEWAY, "E502001", "추천 결과 형식이 올바르지 않습니다."),
+	KIE_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "E502002", "영상 생성 요청에 실패했어요."),
+	OPENAI_IMAGE_EDIT_FAILED(HttpStatus.BAD_GATEWAY, "E502003", "이미지 편집 요청에 실패했어요."),
+	PROXY_UPSTREAM_FAILED(HttpStatus.BAD_GATEWAY, "E502004", "외부 이미지 가져오기에 실패했어요."),
+	PROXY_NOT_IMAGE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "E415001", "이미지 응답이 아니에요."),
 
 	/* 401 */
 
@@ -74,6 +97,9 @@ public enum ErrorCode {
 	IMAGE_JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "E404013", "이미지 잡을 찾을 수 없습니다"),
 	BASE_NOT_FOUND(HttpStatus.NOT_FOUND, "E404014", "베이스 항목을 찾을 수 없습니다"),
 	IMAGE_EDIT_NOT_FOUND(HttpStatus.NOT_FOUND, "E404015", "수정 항목을 찾을 수 없습니다"),
+	VIDEO_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "E404016", "영상 결과를 찾을 수 없어요."),
+	BRAND_GUIDE_NOT_FOUND(HttpStatus.NOT_FOUND, "E404017", "브랜드 가이드를 찾을 수 없어요."),
+	TEMPLATE_FAVORITE_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "E404018", "즐겨찾기 대상 결과물을 찾을 수 없어요."),
 
 
 	/* 409 CONFLICT */

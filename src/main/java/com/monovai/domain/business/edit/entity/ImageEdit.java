@@ -46,30 +46,28 @@ public class ImageEdit extends BaseTimeEntity {
 	@JoinColumn(name = "user_id", nullable = false)
 	private User user;
 
-	/** 체이닝의 root — ImageJob (조회 시 같은 root 의 모든 edits 를 한 번에 끌어옴) */
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "root_job_id", nullable = false)
 	private ImageJob rootJob;
 
 	// ---------- base 정보 (스냅샷) ----------
 
-	/** "V1" (variant) 또는 "bizedit_..." (edit) — 사용자가 보낸 원본 ref */
-	@Column(nullable = false, length = 50)
+	/** "V1" (variant) 또는 "bizedit_..." (edit). text_create 는 base 없음 → null 가능 */
+	@Column(length = 50)
 	private String baseRef;
 
 	@Enumerated(EnumType.STRING)
-	@Column(nullable = false, length = 20)
+	@Column(length = 20)
 	private BaseSourceKind baseSourceKind;
 
-	/** ImageJobVariant.id 또는 ImageEdit.id (kind 에 따라). polymorphic 이라 plain Long. */
-	@Column(nullable = false)
+	@Column
 	private Long baseId;
 
 	@Column(name = "base_s3_key", columnDefinition = "TEXT")
 	private String baseS3Key;
 
 	@Enumerated(EnumType.STRING)
-	@Column(nullable = false, length = 20)
+	@Column(length = 20)
 	private Ratio baseRatio;
 
 	@JdbcTypeCode(SqlTypes.JSON)
@@ -99,6 +97,10 @@ public class ImageEdit extends BaseTimeEntity {
 
 	@Column(name = "result_s3_key", columnDefinition = "TEXT")
 	private String resultS3Key;
+
+	@Enumerated(EnumType.STRING)
+	@Column(length = 20)
+	private Ratio appliedRatio;
 
 	@Column(columnDefinition = "TEXT")
 	private String errorMessage;
@@ -167,5 +169,14 @@ public class ImageEdit extends BaseTimeEntity {
 	public void markFailed(String errorMessage) {
 		this.status = EditStatus.FAILED;
 		this.errorMessage = errorMessage;
+	}
+
+	public void setAppliedRatio(Ratio ratio) {
+		this.appliedRatio = ratio;
+	}
+
+	/** inpaint 흐름에서 mask path/url 등을 params 에 머지 후 setter 호출하기 위한 도우미 */
+	public void updateParams(EditParams params) {
+		this.params = params;
 	}
 }

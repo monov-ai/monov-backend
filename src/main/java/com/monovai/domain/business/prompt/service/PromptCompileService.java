@@ -12,9 +12,6 @@ import com.monovai.domain.business.recommendation.entity.value.GlobalLock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Phase 1·2·3 모두 사용하는 프롬프트 합성 책임.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -39,17 +36,12 @@ public class PromptCompileService {
 		응답 형식은 시스템이 자동으로 안내한다 (record 매핑).
 		""";
 
-	// ---------- Phase 1 ----------
-
 	public String compileRecommendationSystemPrompt(Style style) {
 		return RECOMMENDATION_SYSTEM_PROMPT_TEMPLATE.formatted(
 			style.getValue(), style.getLabel(), recommendationContextHint(style)
 		);
 	}
 
-	/**
-	 * 사용자 입력 텍스트만 합성. 이미지는 multimodal 로 별도 첨부되므로 prompt 본문에 URL 안 박음.
-	 */
 	public String compileRecommendationUserPrompt(
 		String description, boolean hasProductImage, boolean hasReferenceImage
 	) {
@@ -58,10 +50,10 @@ public class PromptCompileService {
 			sb.append("[설명]\n").append(description).append("\n\n");
 		}
 		if (hasProductImage) {
-			sb.append("(첨부 이미지 1: 사용자가 올린 제품 사진)\n");
+			sb.append("(첨부 이미지: 사용자가 올린 제품 사진 — 1개 이상)\n");
 		}
 		if (hasReferenceImage) {
-			sb.append("(첨부 이미지 2: 분위기 참고 이미지)\n");
+			sb.append("(첨부 이미지: 분위기 참고 이미지 — 1개 이상)\n");
 		}
 		if (sb.isEmpty()) {
 			sb.append("자유롭게 추천해줘.");
@@ -69,11 +61,6 @@ public class PromptCompileService {
 		return sb.toString();
 	}
 
-	// ---------- Phase 2 ----------
-
-	/**
-	 * Phase 2: 선택된 variant 의 globalLock + job 옵션을 합쳐 Nanobanana 용 영문 프롬프트 생성.
-	 */
 	public String compileImageGenerationPrompt(ImageJob job, ImageJobVariant variant) {
 		GlobalLock lock = variant.getGlobalLock();
 
@@ -88,7 +75,9 @@ public class PromptCompileService {
 			if (lock.mood() != null) sb.append("Mood: ").append(lock.mood()).append(".\n");
 		}
 
-		sb.append("Camera angle: ").append(job.getAngle().getValue()).append(".\n");
+		if (job.getAngle() != null) {
+			sb.append("Camera angle: ").append(job.getAngle().getValue()).append(".\n");
+		}
 		sb.append("Lighting style preference: ").append(job.getLighting().getValue()).append(".\n");
 		sb.append("Aspect ratio: ").append(job.getRatio().getValue()).append(".\n");
 
@@ -99,70 +88,81 @@ public class PromptCompileService {
 		return sb.toString();
 	}
 
-	// ---------- Phase 3 ----------
-
 	/**
-	 * Phase 3 빠른 수정 prompt 합성.
-	 * 모드별로 다른 prompt 템플릿. base 이미지가 첫 번째 첨부, reference 이미지가 두 번째 첨부.
+	 * Phase 3 빠른 수정 prompt 합성. v2.0:
+	 * - TEXT_CREATE: base 없이 자유 생성
+	 * - ANGLE_CHANGE: rotation/tilt 좌표 우선, fallback enum
+	 * - INPAINT: 별도 워커에서 사용하지만 fallback 으로도 빌드 가능
 	 */
 	public String compileEditPrompt(ImageEdit edit) {
-		EditParams p = edit.getParams() != null ? edit.getParams() : new EditParams(null, null, null, null, null, null);
+		EditParams p = edit.getParams() != null ? edit.getParams() : EditParams.empty();
 
 		StringBuilder sb = new StringBuilder();
-		sb.append("Image 1 is the source image. ");
-		sb.append("Apply the following edit while keeping the product identity, composition, and other locked attributes intact:\n\n");
+
+		boolean isTextCreate = edit.getMode() == com.monovai.domain.business.edit.entity.enums.EditMode.TEXT_CREATE;
+		if (!isTextCreate) {
+			sb.append("Image 1 is the source image. ");
+			sb.append("CRITICAL pose lock — keep product identity, composition, and other locked attributes intact unless explicitly told otherwise:\n\n");
+		}
 
 		switch (edit.getMode()) {
 			case BACKGROUND_CHANGE -> {
 				sb.append("Edit type: BACKGROUND CHANGE.\n");
 				sb.append("Change ONLY the background. Keep product, surface, lighting, and camera angle unchanged.\n");
-				if (p.hasDescription()) {
-					sb.append("New background description: ").append(p.description()).append(".\n");
-				}
-				if (p.hasReferenceImage()) {
-					sb.append("Use Image 2 as a style/mood reference for the new background.\n");
-				}
+				if (p.hasDescription()) sb.append("New background description: ").append(p.description()).append(".\n");
+				if (p.hasReferenceImage()) sb.append("Use the reference image(s) as a style/mood reference for the new background.\n");
 			}
 			case LIGHTING_CHANGE -> {
 				sb.append("Edit type: LIGHTING CHANGE.\n");
 				sb.append("Change ONLY the lighting style. Keep product, background, surface, and angle unchanged.\n");
-				if (p.lighting() != null) {
-					sb.append("New lighting style: ").append(p.lighting()).append(".\n");
-				}
+				if (p.lighting() != null) sb.append("New lighting style: ").append(p.lighting()).append(".\n");
 			}
 			case ANGLE_CHANGE -> {
 				sb.append("Edit type: ANGLE CHANGE.\n");
 				sb.append("Show the same product and scene from a different camera angle.\n");
-				if (p.angle() != null) {
+				if (p.hasAngleCoordinates()) {
+					double rot = p.rotation() != null ? p.rotation() : 0.0;
+					double tilt = p.tilt() != null ? p.tilt() : 0.0;
+					sb.append("Camera orbit (positive = right): ").append(rot).append(" degrees.\n");
+					sb.append("Camera tilt (positive = look down): ").append(tilt).append(" degrees.\n");
+				} else if (p.angle() != null) {
 					sb.append("New camera angle: ").append(p.angle()).append(".\n");
 				}
 			}
 			case RATIO_CHANGE -> {
 				sb.append("Edit type: ASPECT RATIO CHANGE.\n");
 				sb.append("Re-frame the same scene in a new aspect ratio. Extend background as needed.\n");
-				if (p.ratio() != null) {
-					sb.append("New aspect ratio: ").append(p.ratio()).append(".\n");
-				}
+				if (p.ratio() != null) sb.append("New aspect ratio: ").append(p.ratio()).append(".\n");
 			}
 			case PRODUCT_REPLACE -> {
+				int refCount = p.collectReferenceUrls().size();
 				sb.append("Edit type: PRODUCT REPLACE.\n");
-				sb.append("Replace the product in Image 1 with the product shown in Image 2. ");
+				if (refCount <= 1) {
+					sb.append("Replace the product in Image 1 with the product shown in Image 2.\n");
+				} else {
+					sb.append("The ").append(refCount).append(" reference images each show a different product. ");
+					sb.append("Compose them together naturally in the scene.\n");
+				}
 				sb.append("Keep the background, surface, lighting, and overall composition unchanged.\n");
 			}
 			case OBJECT_ADD -> {
 				sb.append("Edit type: OBJECT ADD.\n");
 				sb.append("Add an object/element to the scene without changing the existing product or environment.\n");
-				if (p.hasDescription()) {
-					sb.append("Object to add: ").append(p.description()).append(".\n");
-				}
-				if (p.hasReferenceImage()) {
-					sb.append("Use Image 2 as a reference for the object to add.\n");
-				}
+				if (p.hasDescription()) sb.append("Object to add: ").append(p.description()).append(".\n");
+				if (p.hasReferenceImage()) sb.append("Use the reference image(s) for the object's appearance.\n");
+			}
+			case TEXT_CREATE -> {
+				sb.append("Create a brand-new product photograph from the following description. ");
+				sb.append("No base image — generate from scratch.\n");
+				if (p.hasDescription()) sb.append("Description: ").append(p.description()).append("\n");
+			}
+			case INPAINT -> {
+				sb.append("Edit type: INPAINT — only the masked area should change.\n");
+				if (p.prompt() != null) sb.append("Edit intent: ").append(p.prompt()).append("\n");
 			}
 		}
 
-		// base 컨텍스트 (lock)
-		if (edit.getBaseGlobalLock() != null) {
+		if (edit.getBaseGlobalLock() != null && !isTextCreate) {
 			GlobalLock lock = edit.getBaseGlobalLock();
 			sb.append("\n[Locked attributes — DO NOT change unless this edit explicitly targets them]\n");
 			if (lock.background() != null) sb.append("- Background: ").append(lock.background()).append("\n");

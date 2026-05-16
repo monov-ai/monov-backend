@@ -4,8 +4,8 @@ import com.monovai.global.error.code.ErrorCode;
 import com.monovai.global.error.exception.BadRequestException;
 
 /**
- * v1.1: BACKGROUND_CHANGE 도 enum 으로는 유지하되, params 가 자유 텍스트 + 레퍼런스 이미지로 바뀜.
- * INPAINT 는 spec 에서 미구현 — 거부 처리.
+ * v2.0: TEXT_CREATE (자유 텍스트로 새 이미지 생성) 와 INPAINT (마스크 기반 편집, OpenAI gpt-image-1) 추가.
+ * ANGLE_CHANGE 는 v2.0 에서 rotation/tilt 좌표 기반 (legacy enum 도 fallback 지원).
  */
 public enum EditMode {
 	BACKGROUND_CHANGE,
@@ -13,7 +13,9 @@ public enum EditMode {
 	ANGLE_CHANGE,
 	RATIO_CHANGE,
 	PRODUCT_REPLACE,
-	OBJECT_ADD;
+	OBJECT_ADD,
+	TEXT_CREATE,
+	INPAINT;
 
 	public String getValue() {
 		return name().toLowerCase();
@@ -23,12 +25,8 @@ public enum EditMode {
 		if (value == null) {
 			throw new BadRequestException(ErrorCode.INVALID_EDIT_MODE);
 		}
-		String v = value.toLowerCase();
-		if ("inpaint".equals(v)) {
-			throw new BadRequestException(ErrorCode.EDIT_MODE_INPAINT_NOT_SUPPORTED);
-		}
 		try {
-			return EditMode.valueOf(v.toUpperCase());
+			return EditMode.valueOf(value.toUpperCase());
 		} catch (IllegalArgumentException e) {
 			throw new BadRequestException(ErrorCode.INVALID_EDIT_MODE);
 		}

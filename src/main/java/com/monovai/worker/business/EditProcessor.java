@@ -1,43 +1,47 @@
 package com.monovai.worker.business;
 
+import java.net.URI;
 import java.time.Duration;
+import java.util.List;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClient;
 
 import com.monovai.domain.business.edit.entity.ImageEdit;
+import com.monovai.domain.business.edit.entity.enums.EditMode;
 import com.monovai.domain.business.edit.entity.enums.EditStatus;
 import com.monovai.domain.business.edit.entity.value.EditParams;
 import com.monovai.domain.business.edit.repository.ImageEditRepository;
 import com.monovai.domain.business.prompt.service.PromptCompileService;
 import com.monovai.external.nanobanana.dto.NanobananaResult;
 import com.monovai.external.nanobanana.service.NanobananaService;
+import com.monovai.external.openai.service.OpenAiImageEditService;
 import com.monovai.infrastructure.s3.service.S3Service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Phase 3 edit 처리.
- * - base 이미지(첫 번째 첨부) + 선택적으로 reference 이미지(두 번째 첨부) 를 Nanobanana 에 보냄.
- */
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class EditProcessor {
 
-	private static final Duration NANOBANANA_INPUT_TTL = Duration.ofMinutes(15);
+	private static final Duration INPUT_TTL = Duration.ofMinutes(15);
 
 	private final ImageEditRepository editRepository;
 	private final NanobananaService nanobananaService;
+	private final OpenAiImageEditService openAiImageEditService;
 	private final PromptCompileService promptCompileService;
 	private final S3Service s3Service;
+	private final RestClient http = RestClient.create();
 
 	@Transactional
 	public void process(Long editId) {
 		ImageEdit edit = editRepository.findById(editId).orElseThrow();
 		if (edit.getStatus() != EditStatus.PENDING) {
-			log.warn("[EditProcessor] 이미 처리됨/처리 중, 무시: editId={}, status={}", editId, edit.getStatus());
+			log.warn("[EditProcessor] 이미 처리됨, 무시: editId={} status={}", editId, edit.getStatus());
 			return;
 		}
 
@@ -45,14 +49,14 @@ public class EditProcessor {
 			String prompt = promptCompileService.compileEditPrompt(edit);
 			edit.markRunning(prompt);
 
-			String baseUrl = baseImageUrl(edit);
-			String referenceUrl = referenceImageUrl(edit);
-
 			NanobananaResult result;
-			if (referenceUrl != null) {
-				result = nanobananaService.generateImage(prompt, baseUrl, referenceUrl);
+			if (edit.getMode() == EditMode.INPAINT) {
+				result = runInpaint(edit, prompt);
+			} else if (edit.getMode() == EditMode.TEXT_CREATE) {
+				result = nanobananaService.generateImage(prompt);
 			} else {
-				result = nanobananaService.generateImage(prompt, baseUrl);
+				List<String> inputs = collectInputImageUrls(edit);
+				result = nanobananaService.generateImage(prompt, inputs.toArray(String[]::new));
 			}
 			edit.markSucceeded(result.taskId(), result.s3Key());
 		} catch (Exception e) {
@@ -61,24 +65,43 @@ public class EditProcessor {
 		}
 	}
 
-	private String baseImageUrl(ImageEdit edit) {
-		String key = edit.getBaseS3Key();
-		if (key == null || key.isBlank()) {
-			throw new IllegalStateException("baseS3Key 가 비어있습니다");
+	private NanobananaResult runInpaint(ImageEdit edit, String prompt) {
+		EditParams p = edit.getParams();
+		if (p == null || p.maskPath() == null || edit.getBaseS3Key() == null) {
+			throw new IllegalStateException("inpaint 에 필요한 base / mask 가 없습니다");
 		}
-		return s3Service.getPreSignedUrlForDownload(key, NANOBANANA_INPUT_TTL);
+		String baseUrl = s3Service.getPreSignedUrlForDownload(edit.getBaseS3Key(), INPUT_TTL);
+		String maskUrl = s3Service.getPreSignedUrlForDownload(p.maskPath(), INPUT_TTL);
+		byte[] mask = fetchBytes(maskUrl);
+		String userPrompt = (p.prompt() != null && !p.prompt().isBlank()) ? p.prompt() : prompt;
+		return openAiImageEditService.inpaint(userPrompt, baseUrl, mask, p.size());
 	}
 
-	private String referenceImageUrl(ImageEdit edit) {
+	private byte[] fetchBytes(String url) {
+		ResponseEntity<byte[]> res = http.get().uri(URI.create(url)).retrieve().toEntity(byte[].class);
+		byte[] bytes = res.getBody();
+		if (bytes == null || bytes.length == 0) throw new IllegalStateException("mask fetch 빈 응답");
+		return bytes;
+	}
+
+	private List<String> collectInputImageUrls(ImageEdit edit) {
+		List<String> out = new java.util.ArrayList<>();
+		if (edit.getBaseS3Key() != null && !edit.getBaseS3Key().isBlank()) {
+			out.add(s3Service.getPreSignedUrlForDownload(edit.getBaseS3Key(), INPUT_TTL));
+		}
 		EditParams p = edit.getParams();
-		if (p == null) return null;
-		if (p.referenceImagePath() != null && !p.referenceImagePath().isBlank()) {
-			return s3Service.getPreSignedUrlForDownload(p.referenceImagePath(), NANOBANANA_INPUT_TTL);
+		if (p != null) {
+			List<String> refs = p.collectReferenceUrls();
+			for (String r : refs) {
+				if (r == null || r.isBlank()) continue;
+				if (r.startsWith("http://") || r.startsWith("https://")) {
+					out.add(r);
+				} else {
+					out.add(s3Service.getPreSignedUrlForDownload(r, INPUT_TTL));
+				}
+			}
 		}
-		if (p.referenceImageUrl() != null && !p.referenceImageUrl().isBlank()) {
-			return p.referenceImageUrl();
-		}
-		return null;
+		return out;
 	}
 
 	@Transactional

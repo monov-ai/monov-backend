@@ -11,5 +11,7 @@ public interface ImageEditRepository extends JpaRepository<ImageEdit, Long> {
 
 	List<ImageEdit> findAllByRootJob_IdOrderByCreatedAtAsc(Long rootJobId);
 
+	List<ImageEdit> findAllByRootJob_IdInOrderByCreatedAtAsc(List<Long> rootJobIds);
+
 	Optional<ImageEdit> findByEditSlug(String editSlug);
 }
