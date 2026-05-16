@@ -1,6 +1,8 @@
 package com.monovai.domain.business.recommendation.service;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,8 +34,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class RecommendationService {
 
-	private static final String SLUG_PREFIX = "monov";
+	private static final String SLUG_PREFIX = "bizrec";
 	private static final int EXPECTED_RECOMMENDATION_COUNT = 3;
+	private static final int MAX_IMAGES_PER_SLOT = 4;
 	private static final Duration GPT_IMAGE_TTL = Duration.ofMinutes(15);
 
 	private final RecommendationRequestRepository requestRepository;
@@ -45,40 +48,46 @@ public class RecommendationService {
 
 	@Transactional
 	public RecommendationCreatedResponse create(Long userId, CreateRecommendationRequest request) {
-		// 1. style 변환 + 입력 검증
 		Style style = Style.from(request.style());
-		validateStudioRequiresProductImage(style, request);
 
-		// 2. User 조회
+		List<String> productUrls = request.normalizedProductImageUrls();
+		List<String> productPaths = request.normalizedProductImagePaths();
+		List<String> referenceUrls = request.normalizedReferenceImageUrls();
+		List<String> referencePaths = request.normalizedReferenceImagePaths();
+
+		validateSlotCount(productUrls);
+		validateSlotCount(productPaths);
+		validateSlotCount(referenceUrls);
+		validateSlotCount(referencePaths);
+		validateStudioRequiresProductImage(style, productUrls, productPaths);
+
 		User user = userRepository.findById(userId)
 			.orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
 
-		// 3. RecommendationRequest 저장 (PENDING)
 		RecommendationRequest entity = RecommendationRequest.create(
 			slugGenerator.generate(SLUG_PREFIX),
 			user,
 			style,
 			request.description(),
-			request.productImageUrl(),
-			request.productImagePath(),
-			request.referenceImageUrl(),
-			request.referenceImagePath()
+			productUrls,
+			productPaths,
+			referenceUrls,
+			referencePaths
 		);
 		entity = requestRepository.save(entity);
 
-		// 4. GPT 호출 — multimodal 로 이미지 같이 전달
-		String productImage = resolveImageUrlForGpt(request.productImageUrl(), request.productImagePath());
-		String referenceImage = resolveImageUrlForGpt(request.referenceImageUrl(), request.referenceImagePath());
+		List<String> productGptUrls = resolveImagesForGpt(productUrls, productPaths);
+		List<String> referenceGptUrls = resolveImagesForGpt(referenceUrls, referencePaths);
 
 		String systemPrompt = promptCompileService.compileRecommendationSystemPrompt(style);
 		String userPrompt = promptCompileService.compileRecommendationUserPrompt(
-			request.description(), productImage != null, referenceImage != null
+			request.description(), !productGptUrls.isEmpty(), !referenceGptUrls.isEmpty()
 		);
 
 		GptRecommendationResponse gpt;
 		try {
 			gpt = openAiChatService.generateRecommendations(
-				systemPrompt, userPrompt, productImage, referenceImage
+				systemPrompt, userPrompt, productGptUrls, referenceGptUrls
 			);
 		} catch (Exception e) {
 			log.error("[Recommendation] GPT 호출 실패, requestSlug={}", entity.getRequestSlug(), e);
@@ -86,7 +95,6 @@ public class RecommendationService {
 			throw new BadRequestException(ErrorCode.GPT_RESPONSE_INVALID);
 		}
 
-		// 5. 응답 검증 — 정확히 3건이어야 함
 		if (gpt.recommendations() == null
 			|| gpt.recommendations().size() != EXPECTED_RECOMMENDATION_COUNT) {
 			log.warn("[Recommendation] GPT 응답 추천 수 불일치: expected={}, got={}",
@@ -96,7 +104,6 @@ public class RecommendationService {
 			throw new BadRequestException(ErrorCode.GPT_RESPONSE_INVALID);
 		}
 
-		// 6. 본문을 entity 의 JSON 컬럼에 박제 + COMPLETED 로 전이
 		entity.completeWith(gpt.headline(), gpt.summary(), gpt.corePoints(), gpt.recommendations());
 
 		return RecommendationCreatedResponse.of(entity.getRequestSlug());
@@ -113,29 +120,34 @@ public class RecommendationService {
 		return RecommendationDetailResponse.of(entity);
 	}
 
-	/**
-	 * GPT 에 첨부할 이미지 URL 해석.
-	 * - path(key) 가 있으면 우리 S3 의 짧은 TTL presigned URL 발급 (다른 사람 노출 안 됨)
-	 * - 없고 url 만 있으면 외부 URL 그대로 사용 (예: unsplash)
-	 * - 둘 다 없으면 null (이미지 없이 텍스트만)
-	 */
-	private String resolveImageUrlForGpt(String url, String key) {
-		if (key != null && !key.isBlank()) {
-			return s3Service.getPreSignedUrlForDownload(key, GPT_IMAGE_TTL);
+	private List<String> resolveImagesForGpt(List<String> urls, List<String> paths) {
+		List<String> out = new ArrayList<>();
+		if (paths != null) {
+			for (String key : paths) {
+				if (key != null && !key.isBlank()) {
+					out.add(s3Service.getPreSignedUrlForDownload(key, GPT_IMAGE_TTL));
+				}
+			}
 		}
-		if (url != null && !url.isBlank()) {
-			return url;
+		if (out.isEmpty() && urls != null) {
+			for (String url : urls) {
+				if (url != null && !url.isBlank()) out.add(url);
+			}
 		}
-		return null;
+		return out;
 	}
 
-	private void validateStudioRequiresProductImage(Style style, CreateRecommendationRequest request) {
-		if (style != Style.STUDIO) {
-			return;
+	private void validateSlotCount(List<String> list) {
+		if (list != null && list.size() > MAX_IMAGES_PER_SLOT) {
+			throw new BadRequestException(ErrorCode.TOO_MANY_IMAGES);
 		}
-		boolean hasUrl = request.productImageUrl() != null && !request.productImageUrl().isBlank();
-		boolean hasPath = request.productImagePath() != null && !request.productImagePath().isBlank();
-		if (!hasUrl && !hasPath) {
+	}
+
+	private void validateStudioRequiresProductImage(Style style, List<String> productUrls, List<String> productPaths) {
+		if (style != Style.STUDIO) return;
+		boolean has = (productUrls != null && !productUrls.isEmpty())
+			|| (productPaths != null && !productPaths.isEmpty());
+		if (!has) {
 			throw new BadRequestException(ErrorCode.STUDIO_PRODUCT_IMAGE_REQUIRED);
 		}
 	}

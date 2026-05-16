@@ -1,5 +1,6 @@
 package com.monovai.domain.business.recommendation.entity;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.annotations.JdbcTypeCode;
@@ -52,6 +53,7 @@ public class RecommendationRequest extends BaseTimeEntity {
 	@Column(columnDefinition = "TEXT")
 	private String description;
 
+	// v1 호환: 단수형 (배열의 첫 번째 element 와 같음)
 	@Column(columnDefinition = "TEXT")
 	private String productImageUrl;
 
@@ -63,6 +65,23 @@ public class RecommendationRequest extends BaseTimeEntity {
 
 	@Column(columnDefinition = "TEXT")
 	private String referenceImagePath;
+
+	// v2.0: 다중 이미지 (슬롯당 ≤4). JSON 배열로 저장.
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "JSON")
+	private List<String> productImageUrls;
+
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "JSON")
+	private List<String> productImagePaths;
+
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "JSON")
+	private List<String> referenceImageUrls;
+
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "JSON")
+	private List<String> referenceImagePaths;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
@@ -92,6 +111,10 @@ public class RecommendationRequest extends BaseTimeEntity {
 		String productImagePath,
 		String referenceImageUrl,
 		String referenceImagePath,
+		List<String> productImageUrls,
+		List<String> productImagePaths,
+		List<String> referenceImageUrls,
+		List<String> referenceImagePaths,
 		RecommendationStatus status
 	) {
 		this.requestSlug = requestSlug;
@@ -102,6 +125,10 @@ public class RecommendationRequest extends BaseTimeEntity {
 		this.productImagePath = productImagePath;
 		this.referenceImageUrl = referenceImageUrl;
 		this.referenceImagePath = referenceImagePath;
+		this.productImageUrls = productImageUrls;
+		this.productImagePaths = productImagePaths;
+		this.referenceImageUrls = referenceImageUrls;
+		this.referenceImagePaths = referenceImagePaths;
 		this.status = status;
 	}
 
@@ -110,22 +137,39 @@ public class RecommendationRequest extends BaseTimeEntity {
 		User user,
 		Style style,
 		String description,
-		String productImageUrl,
-		String productImagePath,
-		String referenceImageUrl,
-		String referenceImagePath
+		List<String> productImageUrls,
+		List<String> productImagePaths,
+		List<String> referenceImageUrls,
+		List<String> referenceImagePaths
 	) {
 		return RecommendationRequest.builder()
 			.requestSlug(requestSlug)
 			.user(user)
 			.style(style)
 			.description(description)
-			.productImageUrl(productImageUrl)
-			.productImagePath(productImagePath)
-			.referenceImageUrl(referenceImageUrl)
-			.referenceImagePath(referenceImagePath)
+			.productImageUrl(firstOrNull(productImageUrls))
+			.productImagePath(firstOrNull(productImagePaths))
+			.referenceImageUrl(firstOrNull(referenceImageUrls))
+			.referenceImagePath(firstOrNull(referenceImagePaths))
+			.productImageUrls(emptyToNull(productImageUrls))
+			.productImagePaths(emptyToNull(productImagePaths))
+			.referenceImageUrls(emptyToNull(referenceImageUrls))
+			.referenceImagePaths(emptyToNull(referenceImagePaths))
 			.status(RecommendationStatus.PENDING)
 			.build();
+	}
+
+	private static String firstOrNull(List<String> list) {
+		if (list == null || list.isEmpty()) return null;
+		for (String s : list) if (s != null && !s.isBlank()) return s;
+		return null;
+	}
+
+	private static List<String> emptyToNull(List<String> list) {
+		if (list == null) return null;
+		List<String> filtered = new ArrayList<>();
+		for (String s : list) if (s != null && !s.isBlank()) filtered.add(s);
+		return filtered.isEmpty() ? null : filtered;
 	}
 
 	public void markRunning() {
