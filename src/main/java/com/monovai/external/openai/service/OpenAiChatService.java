@@ -1,6 +1,7 @@
 package com.monovai.external.openai.service;
 
 import java.net.URI;
+import java.util.List;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.core.io.UrlResource;
@@ -21,26 +22,29 @@ public class OpenAiChatService {
 
 	/**
 	 * Phase 1 — GPT 에 추천 생성 요청 (multimodal 지원).
-	 * productImageUrl / referenceImageUrl 가 있으면 첨부 이미지로 함께 전달 → GPT-4V 가 실제 이미지를 분석.
-	 *
-	 * @param systemPrompt     PromptCompileService 가 합성한 시스템 프롬프트
-	 * @param userPrompt       사용자 텍스트 입력
-	 * @param productImageUrl  제품 이미지 URL (없으면 null)
-	 * @param referenceImageUrl 분위기 참고 이미지 URL (없으면 null)
+	 * v2.0: 슬롯당 ≤4장 다중 이미지 첨부 가능.
 	 */
 	public GptRecommendationResponse generateRecommendations(
 		String systemPrompt, String userPrompt,
-		String productImageUrl, String referenceImageUrl
+		List<String> productImageUrls, List<String> referenceImageUrls
 	) {
-		log.info("[OpenAI] generateRecommendations userPromptLen={}, productImage?={}, referenceImage?={}",
-			userPrompt.length(), productImageUrl != null, referenceImageUrl != null);
+		int productCount = productImageUrls == null ? 0 : productImageUrls.size();
+		int referenceCount = referenceImageUrls == null ? 0 : referenceImageUrls.size();
+		log.info("[OpenAI] generateRecommendations userPromptLen={}, productImages={}, referenceImages={}",
+			userPrompt.length(), productCount, referenceCount);
 
 		GptRecommendationResponse response = chatClient.prompt()
 			.system(systemPrompt)
 			.user(u -> {
 				u.text(userPrompt);
-				attachImage(u, productImageUrl, "product");
-				attachImage(u, referenceImageUrl, "reference");
+				if (productImageUrls != null) {
+					int i = 0;
+					for (String url : productImageUrls) attachImage(u, url, "product#" + (++i));
+				}
+				if (referenceImageUrls != null) {
+					int i = 0;
+					for (String url : referenceImageUrls) attachImage(u, url, "reference#" + (++i));
+				}
 			})
 			.call()
 			.entity(GptRecommendationResponse.class);
@@ -48,6 +52,17 @@ public class OpenAiChatService {
 		log.info("[OpenAI] response received: {} recommendations",
 			response.recommendations() != null ? response.recommendations().size() : 0);
 		return response;
+	}
+
+	/** v1 호환: 단수형 변환해서 위 메서드로 위임. */
+	public GptRecommendationResponse generateRecommendations(
+		String systemPrompt, String userPrompt,
+		String productImageUrl, String referenceImageUrl
+	) {
+		return generateRecommendations(systemPrompt, userPrompt,
+			productImageUrl == null ? List.of() : List.of(productImageUrl),
+			referenceImageUrl == null ? List.of() : List.of(referenceImageUrl)
+		);
 	}
 
 	private void attachImage(ChatClient.PromptUserSpec userSpec, String url, String label) {
