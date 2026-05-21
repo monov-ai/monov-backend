@@ -7,6 +7,8 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.monovai.domain.business.brand.entity.BrandGuide;
+import com.monovai.domain.business.brand.repository.BrandGuideRepository;
 import com.monovai.domain.business.prompt.service.PromptCompileService;
 import com.monovai.domain.business.recommendation.dto.request.CreateRecommendationRequest;
 import com.monovai.domain.business.recommendation.dto.response.RecommendationCreatedResponse;
@@ -45,6 +47,7 @@ public class RecommendationService {
 	private final PromptCompileService promptCompileService;
 	private final SlugGenerator slugGenerator;
 	private final S3Service s3Service;
+	private final BrandGuideRepository brandGuideRepository;
 
 	@Transactional
 	public RecommendationCreatedResponse create(Long userId, CreateRecommendationRequest request) {
@@ -79,7 +82,15 @@ public class RecommendationService {
 		List<String> productGptUrls = resolveImagesForGpt(productUrls, productPaths);
 		List<String> referenceGptUrls = resolveImagesForGpt(referenceUrls, referencePaths);
 
-		String systemPrompt = promptCompileService.compileRecommendationSystemPrompt(style);
+		// A.4: brandKitId 가 있으면 본인 소유 브랜드 가이드를 프롬프트에 머지
+		BrandGuide brandGuide = null;
+		if (request.brandKitId() != null && !request.brandKitId().isBlank()) {
+			brandGuide = brandGuideRepository.findByGuideSlug(request.brandKitId())
+				.filter(g -> g.getUser().getId().equals(userId))
+				.orElse(null);
+		}
+
+		String systemPrompt = promptCompileService.compileRecommendationSystemPrompt(style, brandGuide);
 		String userPrompt = promptCompileService.compileRecommendationUserPrompt(
 			request.description(), !productGptUrls.isEmpty(), !referenceGptUrls.isEmpty()
 		);

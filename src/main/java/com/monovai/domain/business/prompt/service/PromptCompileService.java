@@ -42,6 +42,55 @@ public class PromptCompileService {
 		);
 	}
 
+	/**
+	 * A.4: 브랜드 가이드 스냅샷을 시스템 프롬프트 뒤에 합성. brandGuide 가 null 이면 베이스 프롬프트 그대로 반환.
+	 */
+	public String compileRecommendationSystemPrompt(Style style,
+		com.monovai.domain.business.brand.entity.BrandGuide brandGuide) {
+		String base = compileRecommendationSystemPrompt(style);
+		if (brandGuide == null) {
+			return base;
+		}
+		StringBuilder sb = new StringBuilder(base);
+		sb.append("\n\n[브랜드 가이드 — 다음 정체성을 반드시 반영]\n");
+		sb.append("브랜드명: ").append(brandGuide.getName()).append("\n");
+		if (brandGuide.getDescription() != null && !brandGuide.getDescription().isBlank()) {
+			sb.append("설명: ").append(brandGuide.getDescription()).append("\n");
+		}
+		var identity = brandGuide.getIdentity();
+		if (identity != null) {
+			if (identity.colors() != null && !identity.colors().isEmpty()) {
+				sb.append("컬러: ");
+				identity.colors().forEach(c -> sb.append(c.hex())
+					.append(c.description() != null ? "(" + c.description() + ")" : "").append(" "));
+				sb.append("\n");
+			}
+			if (identity.typography() != null && !identity.typography().isEmpty()) {
+				sb.append("타이포그래피: ");
+				identity.typography().forEach(t -> sb.append(t.family()).append(" "));
+				sb.append("\n");
+			}
+			if (identity.moods() != null && !identity.moods().isEmpty()) {
+				sb.append("무드: ");
+				identity.moods().forEach(m -> sb.append(m.label() != null ? m.label() + " " : ""));
+				sb.append("\n");
+			}
+		}
+		if (brandGuide.getPalette() != null && !brandGuide.getPalette().isEmpty()) {
+			sb.append("팔레트: ");
+			brandGuide.getPalette().forEach(p -> sb.append(p.role()).append("=").append(p.hex()).append(" "));
+			sb.append("\n");
+		}
+		if (brandGuide.getGuidelines() != null && !brandGuide.getGuidelines().isEmpty()) {
+			sb.append("가이드라인:\n");
+			brandGuide.getGuidelines().forEach(g ->
+				sb.append("- ").append(g.title()).append(": ")
+					.append(g.summary() != null ? g.summary() : "").append("\n"));
+		}
+		sb.append("globalLock 의 background/surface/lighting/mood 를 브랜드 컬러/무드와 일관되게 작성할 것.\n");
+		return sb.toString();
+	}
+
 	public String compileRecommendationUserPrompt(
 		String description, boolean hasProductImage, boolean hasReferenceImage
 	) {

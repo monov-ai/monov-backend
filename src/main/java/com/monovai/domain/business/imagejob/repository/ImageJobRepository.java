@@ -18,4 +18,6 @@ public interface ImageJobRepository extends JpaRepository<ImageJob, Long> {
 
 	@EntityGraph(attributePaths = {"variants", "request"})
 	List<ImageJob> findAllByUser_IdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+
+	long countByUser_IdAndStatusIn(Long userId, java.util.Collection<com.monovai.domain.business.imagejob.entity.enums.JobStatus> statuses);
 }

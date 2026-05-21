@@ -65,6 +65,26 @@ public class OpenAiChatService {
 		);
 	}
 
+	/**
+	 * 범용 구조화 출력. system/user 프롬프트로 호출 후 지정 타입으로 매핑.
+	 */
+	public <T> T structured(String systemPrompt, String userPrompt, Class<T> type) {
+		return chatClient.prompt()
+			.system(systemPrompt)
+			.user(userPrompt)
+			.call()
+			.entity(type);
+	}
+
+	/** 자유 텍스트 완성. */
+	public String complete(String systemPrompt, String userPrompt) {
+		return chatClient.prompt()
+			.system(systemPrompt)
+			.user(userPrompt)
+			.call()
+			.content();
+	}
+
 	private void attachImage(ChatClient.PromptUserSpec userSpec, String url, String label) {
 		if (url == null || url.isBlank()) {
 			return;

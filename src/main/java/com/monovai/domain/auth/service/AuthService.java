@@ -6,13 +6,25 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 import com.monovai.domain.auth.dto.request.SignupRequest;
 import com.monovai.domain.auth.dto.response.AuthMeResponse;
 import com.monovai.domain.auth.dto.response.AuthResponse;
 import com.monovai.domain.auth.dto.response.JwtResponse;
 import com.monovai.domain.auth.dto.response.OAuthUserInformation;
 import com.monovai.domain.auth.dto.response.SignUpResponse;
+import com.monovai.domain.auth.dto.response.WithdrawResponse;
 import com.monovai.domain.auth.entity.enums.SocialType;
+import com.monovai.domain.business.imagejob.entity.enums.JobStatus;
+import com.monovai.domain.business.imagejob.repository.ImageJobRepository;
+import com.monovai.domain.business.video.entity.enums.VideoStatus;
+import com.monovai.domain.business.video.repository.VideoTemplateRepository;
+import com.monovai.domain.credit.entity.UsageWallet;
+import com.monovai.domain.credit.service.CreditService;
+import com.monovai.domain.payment.entity.Subscription;
+import com.monovai.domain.payment.entity.enums.SubscriptionStatus;
+import com.monovai.domain.payment.repository.SubscriptionRepository;
 import com.monovai.domain.user.entity.User;
 import com.monovai.domain.user.entity.enums.Role;
 import com.monovai.domain.user.repository.UserRepository;
@@ -35,6 +47,10 @@ public class AuthService {
     private final JwtService jwtService;
     private final UserService userService;
     private final TokenService tokenService;
+    private final CreditService creditService;
+    private final ImageJobRepository imageJobRepository;
+    private final VideoTemplateRepository videoTemplateRepository;
+    private final SubscriptionRepository subscriptionRepository;
 
 
 	public AuthResponse login(OAuthUserInformation userInfo) {
@@ -91,13 +107,20 @@ public class AuthService {
                 .profileImageUrl(request.userInformation().profileImageUrl())
                 .socialType(request.userInformation().socialType())
                 .socialId(request.userInformation().socialId())
-                .role(Role.ROLE_USER)
+                .role(Role.ROLE_BUSINESS)   // 데모 단계: 가입 시 비즈니스 권한 부여
                 .build();
     }
 
     @Transactional
-    public void withdraw(final Long userId){
+    public WithdrawResponse withdraw(final Long userId){
         User user = userService.getUser(userId);
+
+        // 진행 중 잡 카운트 (즉시 삭제 불가 — 워커가 마무리)
+        long pendingImages = imageJobRepository.countByUser_IdAndStatusIn(
+            userId, List.of(JobStatus.PENDING, JobStatus.RUNNING, JobStatus.PENDING_IMAGES));
+        long pendingVideos = videoTemplateRepository.countByUser_IdAndStatusIn(
+            userId, List.of(VideoStatus.REQUESTED, VideoStatus.RUNNING));
+        int pending = (int) (pendingImages + pendingVideos);
 
         //토큰 삭제
         tokenService.deleteRefreshToken(userId);
@@ -105,7 +128,8 @@ public class AuthService {
         //사용자 탈퇴
         userRepository.delete(user);
 
-        log.info("정상적으로 탈퇴되었습니다");
+        log.info("탈퇴 완료 userId={} pendingResources={}", userId, pending);
+        return WithdrawResponse.of(pending);
     }
 
     /**
@@ -125,8 +149,25 @@ public class AuthService {
             return AuthMeResponse.anonymous();
         }
         return userRepository.findById(userId)
-            .map(AuthMeResponse::of)
+            .map(user -> {
+                UsageWallet wallet = creditService.getWallet(userId);
+                Object subscription = subscriptionRepository
+                    .findFirstByUser_IdAndStatusOrderByCreatedAtDesc(userId, SubscriptionStatus.ACTIVE)
+                    .map(this::subscriptionSummary)
+                    .orElse(null);
+                return AuthMeResponse.of(user, wallet, subscription);
+            })
             .orElseGet(AuthMeResponse::anonymous);
+    }
+
+    private java.util.Map<String, Object> subscriptionSummary(Subscription s) {
+        java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("planId", s.getPlanId());
+        m.put("planName", s.getPlanName());
+        m.put("status", s.getStatus().getValue());
+        m.put("nextBillingDate", s.getNextBillingDate() != null ? s.getNextBillingDate().toString() : null);
+        m.put("currentPeriodEnd", s.getCurrentPeriodEnd() != null ? s.getCurrentPeriodEnd().toString() : null);
+        return m;
     }
 
 }

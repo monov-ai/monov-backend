@@ -59,6 +59,12 @@ public class Template {
 
 	private LocalDateTime updatedAt;
 
+	@Column(nullable = false)
+	private long downloadCount;
+
+	@Column(nullable = false)
+	private long usageCount;
+
 	@OneToMany(mappedBy = "template", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<TemplateHashtag> hashtags = new ArrayList<>();
 
@@ -87,5 +93,17 @@ public class Template {
 	public void addHashtag(String tag) {
 		TemplateHashtag hashtag = new TemplateHashtag(this, tag);
 		this.hashtags.add(hashtag);
+	}
+
+	public void incrementDownloadCount() {
+		this.downloadCount += 1;
+	}
+
+	public void incrementUsageCount() {
+		this.usageCount += 1;
+	}
+
+	public List<String> hashtagValues() {
+		return this.hashtags.stream().map(TemplateHashtag::getTag).toList();
 	}
 }

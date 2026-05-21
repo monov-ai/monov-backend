@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartException;
 import com.monovai.global.error.code.ErrorCode;
 import com.monovai.global.error.dto.ErrorResponse;
 import com.monovai.global.error.exception.BusinessException;
+import com.monovai.global.error.exception.RateLimitException;
 
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintViolationException;
@@ -30,6 +31,14 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException ex) {
 		log.debug("BusinessException 발생: {}", ex.getErrorCode().getCode(), ex);
 		return ResponseEntity.status(ex.getErrorCode().getHttpStatus())
+			.body(ErrorResponse.of(ex.getErrorCode()));
+	}
+
+	@ExceptionHandler(RateLimitException.class)
+	public ResponseEntity<ErrorResponse> handleRateLimitException(RateLimitException ex) {
+		log.debug("RateLimitException 발생, retryAfter={}s", ex.getRetryAfterSeconds());
+		return ResponseEntity.status(ex.getErrorCode().getHttpStatus())
+			.header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
 			.body(ErrorResponse.of(ex.getErrorCode()));
 	}
 
