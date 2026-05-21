@@ -46,6 +46,36 @@ public class User {
 
 	private LocalDateTime onboardingCompletedAt;
 
+	// A.1 온보딩 (직군 / 유입경로)
+	@Column(name = "onboarding_job")
+	private String onboardingJob;
+
+	@Column(name = "onboarding_source")
+	private String onboardingSource;
+
+	// A.2 사용자 선호 locale (ko | en | ja)
+	@Column(name = "locale", length = 5)
+	private String locale;
+
+	// A.3 동의 메타데이터
+	@Column(name = "terms_accepted")
+	private Boolean termsAccepted;
+
+	@Column(name = "privacy_accepted")
+	private Boolean privacyAccepted;
+
+	@Column(name = "content_usage_accepted")
+	private Boolean contentUsageAccepted;
+
+	@Column(name = "marketing_accepted")
+	private Boolean marketingAccepted;
+
+	@Column(name = "consent_version", length = 20)
+	private String consentVersion;
+
+	@Column(name = "consent_at")
+	private LocalDateTime consentAt;
+
 	@Column(name = "profile_image_url")
 	private String profileImageUrl;
 
@@ -58,6 +88,9 @@ public class User {
 
 	@Enumerated(EnumType.STRING)
 	private Role role;
+
+	@Column(name = "active")
+	private Boolean active;
 
 	@Builder
 	public User(String email, String name, String nickname, String picture, String provider, Integer credits,
@@ -79,5 +112,33 @@ public class User {
 		this.socialType = socialType;
 		this.socialId = socialId;
 		this.role = role;
+	}
+
+	public void completeOnboarding(String job, String source, LocalDateTime completedAt) {
+		this.onboardingJob = job;
+		this.onboardingSource = source;
+		this.onboardingCompletedAt = completedAt;
+	}
+
+	public void updateLocale(String locale) {
+		this.locale = locale;
+	}
+
+	public void recordConsents(boolean terms, boolean privacy, boolean contentUsage, boolean marketing,
+		String version, LocalDateTime at) {
+		this.termsAccepted = terms;
+		this.privacyAccepted = privacy;
+		this.contentUsageAccepted = contentUsage;
+		this.marketingAccepted = marketing;
+		this.consentVersion = version;
+		this.consentAt = at;
+	}
+
+	public boolean isOnboardingCompleted() {
+		return this.onboardingCompletedAt != null;
+	}
+
+	public void deactivate() {
+		this.active = false;
 	}
 }

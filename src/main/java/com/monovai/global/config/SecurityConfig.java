@@ -34,9 +34,12 @@ public class SecurityConfig {
 		// 인증 자체에 필요한 엔드포인트
 		"/api/v1/auth/login-uri",
 		"/api/v1/auth/sign-in",
+		"/api/v1/auth/login",     // OAuth 인가코드 GET 콜백 (Google/Kakao)
 		"/api/v1/auth/sign-up",
 		"/api/v1/auth/reissue",
 		"/api/v1/auth/me",
+		// webhook (외부 호출 — 자체 시그니처 검증)
+		"/api/v1/webhooks/**",
 		// 디버그 (운영 전 제거 또는 @Profile("debug") 격리)
 		"/api/v1/_debug/**"
 	};
@@ -57,8 +60,11 @@ public class SecurityConfig {
 		http.authorizeHttpRequests(auth -> auth
 			.requestMatchers(HttpMethod.OPTIONS).permitAll()
 			.requestMatchers(PUBLIC_PATHS).permitAll()
+			// 템플릿 카탈로그 조회는 공개 (C.1)
+			.requestMatchers(HttpMethod.GET, "/api/v1/templates", "/api/v1/templates/**").permitAll()
 			.requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-			.requestMatchers("/api/v1/business/**").hasRole("ADMIN")   // /business 도메인은 관리자 전용 (시연용)
+			// 데모 단계: 비즈니스 라우트는 인증된 모든 사용자에게 개방 (A.6).
+			.requestMatchers("/api/v1/business/**").authenticated()
 			.anyRequest().authenticated()
 		);
 

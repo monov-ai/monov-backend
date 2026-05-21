@@ -27,7 +27,10 @@ public record CreateRecommendationRequest(
 	String productImageUrl,
 	String productImagePath,
 	String referenceImageUrl,
-	String referenceImagePath
+	String referenceImagePath,
+
+	// A.4: 브랜드 가이드 적용 (선택)
+	String brandKitId
 ) {
 
 	public List<String> normalizedProductImageUrls() {

@@ -14,4 +14,12 @@ public interface VideoTemplateRepository extends JpaRepository<VideoTemplate, Lo
 	List<VideoTemplate> findAllByUser_IdAndSourceOrderByCreatedAtDesc(Long userId, String source);
 
 	List<VideoTemplate> findAllByUser_IdOrderByCreatedAtDesc(Long userId);
+
+	long countByUser_IdAndStatusIn(Long userId, java.util.Collection<com.monovai.domain.business.video.entity.enums.VideoStatus> statuses);
+
+	java.util.List<VideoTemplate> findAllByUser_IdAndUpdatedAtGreaterThanOrderByUpdatedAtAsc(
+		Long userId, java.sql.Timestamp since, org.springframework.data.domain.Pageable pageable);
+
+	java.util.List<VideoTemplate> findAllByUser_IdOrderByUpdatedAtDesc(
+		Long userId, org.springframework.data.domain.Pageable pageable);
 }
