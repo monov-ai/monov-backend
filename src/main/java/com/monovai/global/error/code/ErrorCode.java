@@ -120,12 +120,14 @@ public enum ErrorCode {
 	VIDEO_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "E404016", "영상 결과를 찾을 수 없어요."),
 	BRAND_GUIDE_NOT_FOUND(HttpStatus.NOT_FOUND, "E404017", "브랜드 가이드를 찾을 수 없어요."),
 	TEMPLATE_FAVORITE_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "E404018", "즐겨찾기 대상 결과물을 찾을 수 없어요."),
+	BLOG_POST_NOT_FOUND(HttpStatus.NOT_FOUND, "E404024", "블로그 글을 찾을 수 없어요."),
 
 
 	/* 409 CONFLICT */
 
 	DUPLICATED_NICKNAME(HttpStatus.CONFLICT, "E409001", "닉네임 중복입니다"),
 	DUPLICATED_EMAIL(HttpStatus.CONFLICT, "E409002", "이메일 중복입니다"),
+	DUPLICATED_BLOG_SLUG(HttpStatus.CONFLICT, "E409003", "이미 사용 중인 슬러그예요."),
 
 	/* 500 INTERNAL SERVER ERROR */
 

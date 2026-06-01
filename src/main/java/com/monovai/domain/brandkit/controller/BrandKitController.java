@@ -117,13 +117,14 @@ public class BrandKitController {
 	}
 
 	@PatchMapping("/plans/{weekId}")
-	@Operation(summary = "주차 계획 수정")
+	@Operation(summary = "주차 계획 부분 수정 (§6 deep merge)",
+		description = "객체끼리만 재귀 병합. 배열/스칼라는 incoming 값으로 교체.")
 	public ResponseEntity<Map<String, Object>> patchPlan(
 		@AuthenticationPrincipal Long userId,
 		@PathVariable("weekId") String weekId,
 		@RequestBody Object data
 	) {
-		return ResponseEntity.ok(ok("plan", service.upsertPlan(userId, weekId, data)));
+		return ResponseEntity.ok(ok("plan", service.patchPlan(userId, weekId, data)));
 	}
 
 	private static Map<String, Object> ok(String key, Object value) {

@@ -45,7 +45,10 @@ public record EditParams(
 	String maskPath,
 	Integer maskWidth,
 	Integer maskHeight,
-	String size
+	String size,
+
+	// freeform / source-image / inpaint: 배경 투명 (gpt-image-1 만 지원)
+	Boolean transparentBackground
 ) {
 
 	public boolean hasDescription() {
@@ -81,7 +84,11 @@ public record EditParams(
 		return rotation != null || tilt != null;
 	}
 
+	public boolean isTransparentBackground() {
+		return Boolean.TRUE.equals(transparentBackground);
+	}
+
 	public static EditParams empty() {
-		return new EditParams(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+		return new EditParams(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 	}
 }

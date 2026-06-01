@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.monovai.domain.credit.service.CreditService;
+import com.monovai.domain.feedback.service.UserFeedbackService;
 import com.monovai.domain.template.repository.TemplateRepository;
 import com.monovai.domain.user.entity.User;
 import com.monovai.domain.user.repository.UserRepository;
@@ -30,6 +31,7 @@ public class AdminService {
 	private final UserRepository userRepository;
 	private final TemplateRepository templateRepository;
 	private final CreditService creditService;
+	private final UserFeedbackService userFeedbackService;
 
 	public Map<String, Object> dashboard() {
 		long totalUsers = userRepository.count();
@@ -62,11 +64,7 @@ public class AdminService {
 	}
 
 	public Map<String, Object> feedback() {
-		// 피드백 도메인 미구축 — 빈 구조 반환 (계약 유지)
-		Map<String, Object> body = new LinkedHashMap<>();
-		body.put("summary", Map.of("total", 0));
-		body.put("items", List.of());
-		return body;
+		return userFeedbackService.listForAdmin(200);
 	}
 
 	public Map<String, Object> users(String search) {

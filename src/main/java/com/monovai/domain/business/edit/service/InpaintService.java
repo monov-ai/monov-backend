@@ -80,7 +80,8 @@ public class InpaintService {
 				null, null, null, null, null,
 				request.prompt(), null, null,
 				request.maskWidth(), request.maskHeight(),
-				request.size() == null ? "auto" : request.size()
+				request.size() == null ? "auto" : request.size(),
+				request.transparentBackground()
 			)
 		);
 		edit = editRepository.save(edit);
@@ -94,7 +95,8 @@ public class InpaintService {
 			null, null, null, null,
 			oldParams.prompt(), null, maskKey,
 			oldParams.maskWidth(), oldParams.maskHeight(),
-			oldParams.size()
+			oldParams.size(),
+			oldParams.transparentBackground()
 		));
 
 		eventPublisher.publishEvent(new EditCreatedEvent(edit.getId()));

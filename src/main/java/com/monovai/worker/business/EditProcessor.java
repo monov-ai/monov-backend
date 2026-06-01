@@ -49,11 +49,27 @@ public class EditProcessor {
 			String prompt = promptCompileService.compileEditPrompt(edit);
 			edit.markRunning(prompt);
 
+			EditParams p = edit.getParams();
+			boolean transparent = p != null && p.isTransparentBackground();
+
 			NanobananaResult result;
 			if (edit.getMode() == EditMode.INPAINT) {
-				result = runInpaint(edit, prompt);
+				result = runInpaint(edit, prompt, transparent);
 			} else if (edit.getMode() == EditMode.TEXT_CREATE) {
-				result = nanobananaService.generateImage(prompt);
+				// 정책: "수정하기" (TEXT_CREATE) 는 OpenAI gpt-image-2 (또는 transparent ON → gpt-image-1).
+				// base 이미지가 있으면 editWithSource, 없으면 generate.
+				String size = p != null ? p.size() : null;
+				if (edit.getBaseS3Key() != null) {
+					String baseUrl = s3Service.getPreSignedUrlForDownload(edit.getBaseS3Key(), INPUT_TTL);
+					result = openAiImageEditService.editWithSource(prompt, baseUrl, size, transparent);
+				} else if (transparent) {
+					// transparent 가 필요하면 base 없이 generate 는 불가 (gpt-image-1 만 transparent 지원).
+					// 빈 image 를 만들 수 없으니 generate 로 폴백하면서 transparent 는 무시.
+					log.warn("[EditProcessor] TEXT_CREATE transparent=true 인데 base 없음 — transparent 무시");
+					result = openAiImageEditService.generate(prompt, size);
+				} else {
+					result = openAiImageEditService.generate(prompt, size);
+				}
 			} else {
 				List<String> inputs = collectInputImageUrls(edit);
 				result = nanobananaService.generateImage(prompt, inputs.toArray(String[]::new));
@@ -65,7 +81,7 @@ public class EditProcessor {
 		}
 	}
 
-	private NanobananaResult runInpaint(ImageEdit edit, String prompt) {
+	private NanobananaResult runInpaint(ImageEdit edit, String prompt, boolean transparent) {
 		EditParams p = edit.getParams();
 		if (p == null || p.maskPath() == null || edit.getBaseS3Key() == null) {
 			throw new IllegalStateException("inpaint 에 필요한 base / mask 가 없습니다");
@@ -74,7 +90,7 @@ public class EditProcessor {
 		String maskUrl = s3Service.getPreSignedUrlForDownload(p.maskPath(), INPUT_TTL);
 		byte[] mask = fetchBytes(maskUrl);
 		String userPrompt = (p.prompt() != null && !p.prompt().isBlank()) ? p.prompt() : prompt;
-		return openAiImageEditService.inpaint(userPrompt, baseUrl, mask, p.size());
+		return openAiImageEditService.inpaint(userPrompt, baseUrl, mask, p.size(), transparent);
 	}
 
 	private byte[] fetchBytes(String url) {
