@@ -11,6 +11,7 @@ import com.monovai.domain.content.dto.NewsDtos.GenerateHtmlResponse;
 import com.monovai.domain.content.dto.NewsDtos.GenerateTextRequest;
 import com.monovai.domain.content.dto.NewsDtos.GenerateTextResponse;
 import com.monovai.domain.content.dto.NewsDtos.HtmlCard;
+import com.monovai.external.openai.config.OpenAiConfig;
 import com.monovai.external.openai.service.OpenAiChatService;
 import com.monovai.global.error.code.ErrorCode;
 import com.monovai.global.error.exception.BusinessException;
@@ -23,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class NewsService {
 
-	private static final String MODEL = "gpt-4o";
+	private static final String MODEL = OpenAiConfig.NEWS_CHAT_MODEL;
 
 	private final OpenAiChatService openAiChatService;
 
@@ -39,7 +40,7 @@ public class NewsService {
 			+ "\n타겟: " + nz(req.targetAudience()) + "\n템플릿: " + nz(req.template())
 			+ "\n카드수: " + count;
 		try {
-			GenerateTextResponse res = openAiChatService.structured(system, user, GenerateTextResponse.class);
+			GenerateTextResponse res = openAiChatService.structured(system, user, GenerateTextResponse.class, MODEL);
 			return new GenerateTextResponse(res.cards(), "openai", MODEL);
 		} catch (Exception e) {
 			log.error("[News] generate-text 실패", e);
@@ -60,7 +61,7 @@ public class NewsService {
 				+ "\nheadline: " + nz(card.headline()) + "\nsubtitle: " + nz(card.subtitle())
 				+ "\nbody: " + nz(card.body()) + "\ncta: " + nz(card.cta());
 			try {
-				HtmlCard html = openAiChatService.structured(system, user, HtmlCard.class);
+				HtmlCard html = openAiChatService.structured(system, user, HtmlCard.class, MODEL);
 				htmlCards.add(html);
 			} catch (Exception e) {
 				log.error("[News] generate-html 실패", e);

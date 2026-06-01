@@ -16,6 +16,7 @@ import com.monovai.domain.business.edit.entity.ImageEdit;
 import com.monovai.domain.business.edit.entity.enums.EditMode;
 import com.monovai.domain.business.edit.entity.value.EditParams;
 import com.monovai.domain.business.edit.repository.ImageEditRepository;
+import com.monovai.domain.business.imagejob.dto.request.CreateJobFromUploadRequest;
 import com.monovai.domain.business.imagejob.dto.request.GenerateImageRequest;
 import com.monovai.domain.business.imagejob.dto.response.ImageJobCreatedResponse;
 import com.monovai.domain.business.imagejob.dto.response.ImageJobResponse;
@@ -87,7 +88,8 @@ public class ImageJobService {
 			.orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
 
 		ImageJob job = ImageJob.create(
-			slugGenerator.generate(SLUG_PREFIX), user, req, angle, lighting, ratio
+			slugGenerator.generate(SLUG_PREFIX), user, req, angle, lighting, ratio,
+			request.transparentBackground()
 		);
 		int seq = 1;
 		for (RecommendationItem item : selected) {
@@ -103,6 +105,50 @@ public class ImageJobService {
 
 		log.info("[ImageJobService] created jobId={} variants={}", job.getJobSlug(), job.getVariants().size());
 		return ImageJobCreatedResponse.of(job.getJobSlug());
+	}
+
+	/**
+	 * §15: 사용자가 업로드한 이미지 1장을 V1=완료 상태로 등록. Nanobanana 호출 없음.
+	 * imagePath 의 prefix 가 호출 사용자 ID 와 일치하는지 검증 (SSRF/도용 방지).
+	 */
+	@Transactional
+	public ImageJobCreatedResponse createFromUpload(Long userId, CreateJobFromUploadRequest request) {
+		Ratio ratio = Ratio.from(request.ratio());
+
+		validateOwnedS3Key(request.imagePath(), userId);
+
+		User user = userRepository.findById(userId)
+			.orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
+
+		ImageJob job = ImageJob.createFromUpload(
+			slugGenerator.generate(SLUG_PREFIX), user, ratio,
+			request.imageUrl(), request.imagePath()
+		);
+		ImageJobVariant variant = ImageJobVariant.createFromUpload(job, request.title(), request.imagePath());
+		job.addVariant(variant);
+
+		job = jobRepository.save(job);
+
+		log.info("[ImageJobService] user_upload jobId={} ratio={} title={}",
+			job.getJobSlug(), ratio.getValue(), request.title());
+		return ImageJobCreatedResponse.of(job.getJobSlug());
+	}
+
+	/**
+	 * S3 key 가 사용자 본인 prefix 에 속하는지 검사. 우리 S3 업로드 키 컨벤션은
+	 * `users/{userId}/...` 또는 `business_uploads/{userId}/...` 같은 prefix 패턴.
+	 * 둘 다 허용하고, 어느 쪽도 아니면 reject.
+	 */
+	private void validateOwnedS3Key(String key, Long userId) {
+		if (key == null || key.isBlank()) {
+			throw new BadRequestException(ErrorCode.MISSING_PARAMETER);
+		}
+		String uid = String.valueOf(userId);
+		boolean ok = key.contains("/" + uid + "/") || key.startsWith(uid + "/");
+		if (!ok) {
+			log.warn("[ImageJobService] foreign S3 key 요청 거부 userId={} key={}", userId, key);
+			throw new ForbiddenException(ErrorCode.S3_KEY_FORBIDDEN);
+		}
 	}
 
 	public ImageJobResponse get(Long userId, String jobId) {
@@ -153,7 +199,7 @@ public class ImageJobService {
 			}
 			editViews.add(ImageJobResponse.EditView.of(
 				e, job.getJobSlug(), job.getUser().getId(),
-				job.getRequest().getRequestSlug(),
+				job.getRequest() == null ? null : job.getRequest().getRequestSlug(),
 				baseUrl, resultUrl, baseFetchable, singleRefFetchable, refFetchableList
 			));
 

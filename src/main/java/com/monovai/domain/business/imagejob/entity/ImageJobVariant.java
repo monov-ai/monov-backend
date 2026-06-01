@@ -108,6 +108,25 @@ public class ImageJobVariant extends BaseTimeEntity {
 			.build();
 	}
 
+	/**
+	 * §15: 사용자 업로드 V1. Nanobanana 호출 없이 status=COMPLETED + resultS3Key 를 바로 박는다.
+	 */
+	public static ImageJobVariant createFromUpload(
+		ImageJob job, String title, String resultS3Key
+	) {
+		ImageJobVariant v = ImageJobVariant.builder()
+			.job(job)
+			.variantSeq(1)
+			.recommendationId("user_upload")
+			.recommendationTitle(title == null || title.isBlank() ? "내가 업로드한 이미지" : title)
+			.recommendationDescription(null)
+			.globalLock(null)
+			.status(VariantStatus.COMPLETED)
+			.build();
+		v.resultS3Key = resultS3Key;
+		return v;
+	}
+
 	public String getVariantId() {
 		return "V" + variantSeq;
 	}

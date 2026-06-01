@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.monovai.domain.business.imagejob.dto.request.CreateJobFromUploadRequest;
 import com.monovai.domain.business.imagejob.dto.request.FavoriteToggleRequest;
 import com.monovai.domain.business.imagejob.dto.request.GenerateImageRequest;
 import com.monovai.domain.business.imagejob.dto.request.TemplateFavoriteToggleRequest;
@@ -75,6 +76,41 @@ public class ImageJobController {
 	) {
 		return ResponseEntity.ok(
 			SuccessResponse.of(SuccessCode.SUCCESS_CREATE, imageJobService.create(userId, request)));
+	}
+
+	@PostMapping("/image-job/from-upload")
+	@Operation(
+		summary = "사용자 업로드 이미지를 V1=완료 상태로 등록 (§15)",
+		description = """
+			사용자가 업로드한 이미지 한 장을 그대로 'V1=완료' 인 ImageJob 으로 등록합니다.
+			Nanobanana 호출 없음, 추천(`requestId`) 없이도 잡 생성.
+
+			- `imagePath` 의 S3 key prefix 가 호출 사용자 ID 와 일치하지 않으면 403 으로 거부 (SSRF/도용 방지).
+			- 잡 `status` 는 즉시 `completed`, `variants[0]` 의 `variantId="V1"` `resultImageUrl=imageUrl`.
+			- 이후 결과 페이지에서 background_change / lighting_change 등 빠른 수정 체이닝 가능.
+			""",
+		requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+			content = @Content(examples = @ExampleObject(value = """
+				{
+				  "imageUrl": "https://...s3.amazonaws.com/users/123/uploads/abc.png?...",
+				  "imagePath": "users/123/uploads/abc.png",
+				  "ratio": "1:1",
+				  "title": "내가 올린 사진"
+				}
+				"""))
+		)
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "201", description = "잡 생성 (jobId 반환)"),
+		@ApiResponse(responseCode = "400", description = "필수 누락 / ratio 무효"),
+		@ApiResponse(responseCode = "403", description = "imagePath 가 본인 prefix 가 아님")
+	})
+	public ResponseEntity<SuccessResponse<ImageJobCreatedResponse>> createFromUpload(
+		@AuthenticationPrincipal Long userId,
+		@Valid @RequestBody CreateJobFromUploadRequest request
+	) {
+		return ResponseEntity.ok(
+			SuccessResponse.of(SuccessCode.SUCCESS_CREATE, imageJobService.createFromUpload(userId, request)));
 	}
 
 	@GetMapping("/image-job")

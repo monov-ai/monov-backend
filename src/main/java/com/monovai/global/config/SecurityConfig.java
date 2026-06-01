@@ -62,6 +62,8 @@ public class SecurityConfig {
 			.requestMatchers(PUBLIC_PATHS).permitAll()
 			// 템플릿 카탈로그 조회는 공개 (C.1)
 			.requestMatchers(HttpMethod.GET, "/api/v1/templates", "/api/v1/templates/**").permitAll()
+			// §17 블로그 공개 라우트 (목록 + 단건). admin 경로는 아래 hasRole("ADMIN") 매처가 받음.
+			.requestMatchers(HttpMethod.GET, "/api/v1/blog/posts", "/api/v1/blog/posts/**").permitAll()
 			.requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
 			// 데모 단계: 비즈니스 라우트는 인증된 모든 사용자에게 개방 (A.6).
 			.requestMatchers("/api/v1/business/**").authenticated()

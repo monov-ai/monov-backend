@@ -22,4 +22,11 @@ public interface VideoTemplateRepository extends JpaRepository<VideoTemplate, Lo
 
 	java.util.List<VideoTemplate> findAllByUser_IdOrderByUpdatedAtDesc(
 		Long userId, org.springframework.data.domain.Pageable pageable);
+
+	// §11: templateId 필터링
+	java.util.List<VideoTemplate> findAllByUser_IdAndTemplateIdAndUpdatedAtGreaterThanOrderByUpdatedAtAsc(
+		Long userId, String templateId, java.sql.Timestamp since, org.springframework.data.domain.Pageable pageable);
+
+	java.util.List<VideoTemplate> findAllByUser_IdAndTemplateIdOrderByUpdatedAtDesc(
+		Long userId, String templateId, org.springframework.data.domain.Pageable pageable);
 }

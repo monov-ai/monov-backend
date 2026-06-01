@@ -1,6 +1,8 @@
 package com.monovai.domain.brandkit.service;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -84,5 +86,49 @@ public class BrandKitService {
 			plan.updateData(data);
 		}
 		return plan.getData();
+	}
+
+	/**
+	 * §6: PATCH 는 deep merge. 객체끼리만 재귀적으로 병합, 배열/스칼라는 incoming 으로 교체.
+	 * 기존 데이터가 없거나 객체가 아니면 incoming 으로 통째 저장 (PUT 과 동일 동작).
+	 */
+	@Transactional
+	public Object patchPlan(Long userId, String weekId, Object incoming) {
+		BrandKitPlan plan = planRepository.findByUserIdAndWeekId(userId, weekId).orElse(null);
+		if (plan == null) {
+			plan = planRepository.save(BrandKitPlan.create(userId, weekId, incoming));
+			return plan.getData();
+		}
+		Object existing = plan.getData();
+		Object merged;
+		if (existing instanceof Map<?, ?> && incoming instanceof Map<?, ?>) {
+			@SuppressWarnings("unchecked")
+			Map<String, Object> base = new LinkedHashMap<>((Map<String, Object>) existing);
+			@SuppressWarnings("unchecked")
+			Map<String, Object> patch = (Map<String, Object>) incoming;
+			merged = deepMerge(base, patch);
+		} else {
+			merged = incoming;
+		}
+		plan.updateData(merged);
+		return plan.getData();
+	}
+
+	private static Map<String, Object> deepMerge(Map<String, Object> base, Map<String, Object> patch) {
+		for (Map.Entry<String, Object> e : patch.entrySet()) {
+			String key = e.getKey();
+			Object pv = e.getValue();
+			Object bv = base.get(key);
+			if (bv instanceof Map<?, ?> && pv instanceof Map<?, ?>) {
+				@SuppressWarnings("unchecked")
+				Map<String, Object> bm = new LinkedHashMap<>((Map<String, Object>) bv);
+				@SuppressWarnings("unchecked")
+				Map<String, Object> pm = (Map<String, Object>) pv;
+				base.put(key, deepMerge(bm, pm));
+			} else {
+				base.put(key, pv);
+			}
+		}
+		return base;
 	}
 }

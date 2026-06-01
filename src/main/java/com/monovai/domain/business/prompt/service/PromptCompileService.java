@@ -8,6 +8,7 @@ import com.monovai.domain.business.imagejob.entity.ImageJob;
 import com.monovai.domain.business.imagejob.entity.ImageJobVariant;
 import com.monovai.domain.business.recommendation.entity.enums.Style;
 import com.monovai.domain.business.recommendation.entity.value.GlobalLock;
+import com.monovai.external.openai.service.OpenAiChatService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,22 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class PromptCompileService {
 
+	private final OpenAiChatService openAiChatService;
+
+	private static final String PHASE2_SYSTEM_PROMPT = """
+		You are a senior prompt engineer specialized in product photography prompts for Google Nanobanana
+		(image generation). Take the user's structured concept brief and produce a single English
+		generation prompt rich in visual vocabulary (lens, lighting, composition, surface, material,
+		mood) so the image model has enough context to render a premium result.
+
+		Constraints:
+		- Single paragraph, English only, 60–140 words.
+		- No bullet lists. No JSON. No markdown.
+		- Do NOT add people, text overlays, logos, watermarks, or brand names.
+		- Honor the aspect ratio, lighting style, and locked attributes (background/surface/mood) exactly.
+		- Lead with the subject and concept; end with constraint clause "no text, no people, no logos".
+		""";
+
 	private static final String RECOMMENDATION_SYSTEM_PROMPT_TEMPLATE = """
 		너는 제품 사진 컨셉을 추천하는 AI 디렉터다.
 		사용자가 입력한 정보를 바탕으로 정확히 3개의 컨셉 추천을 만든다.
@@ -25,21 +42,62 @@ public class PromptCompileService {
 		%s — %s
 		%s
 
+		[TYPE LOCK — 스타일별 절대 강제]
+		%s
+
 		[작성 규칙]
 		- title, description, tags 는 한국어로 작성
 		- id 는 영문 snake_case 로 짧고 의미있게 (예: warm_wood_studio, stone_luxury_studio)
 		- globalLock 의 4개 필드(background, surface, lighting, mood) 는 영문으로 (이미지 생성 워커가 그대로 prompt 에 사용)
 		- recommended 는 셋 중 가장 추천하는 1건만 true, 나머지는 false
-		- 3개의 추천이 서로 다른 분위기/방향을 가지도록 다양성 확보
 		- corePoints.summary 와 corePoints.keywords 는 사용자가 입력한 핵심 키워드를 정리
+
+		[CUT RULE — 추천 3개의 차별화]
+		- 3개 추천은 background / surface / lighting / mood 중 최소 2개 축에서 서로 달라야 한다
+		- 동일한 단어 (예: wood, marble) 를 두 추천에 동시에 쓰지 말 것
+		- mood 톤이 모두 같은 방향(전부 warm, 전부 cool) 이면 안 됨 — 최소 1개는 대비되는 방향
+
+		[GLOBAL HARD RULES — 안전 가드]
+		- 사람, 인물, 얼굴, 손, 신체 부위 묘사 금지
+		- 텍스트/카피/로고/워터마크/브랜드명 묘사 금지
+		- 폭력, 성적, 정치적, 의학적 컨텍스트 금지
 
 		응답 형식은 시스템이 자동으로 안내한다 (record 매핑).
 		""";
 
 	public String compileRecommendationSystemPrompt(Style style) {
 		return RECOMMENDATION_SYSTEM_PROMPT_TEMPLATE.formatted(
-			style.getValue(), style.getLabel(), recommendationContextHint(style)
+			style.getValue(), style.getLabel(), recommendationContextHint(style), typeLock(style)
 		);
+	}
+
+	private String typeLock(Style style) {
+		return switch (style) {
+			case STUDIO -> """
+				- 카테고리 LOCK: studio product shot (광고/상세페이지 단독 컷)
+				- 카메라: 제품 단독 부각, 정면/반측면 위주
+				- 배경: 단색 또는 텍스처 한 가지로 통일 (clutter 금지)
+				- 추가 오브젝트는 1~2개로 절제, 절대 주인공 흐리지 않게
+				""";
+			case BANNER_EVENT -> """
+				- 카테고리 LOCK: campaign banner / event key visual
+				- 시즈널 모티브 (계절, 행사, 프로모션) 반드시 1개 포함
+				- 구도는 가로형/세로형 배너 친화 (여백, breathing room 확보)
+				- 배경은 풍부한 디렉션 가능하나 인물/텍스트는 금지 (워커 lock)
+				""";
+			case SOURCE_IMAGE -> """
+				- 카테고리 LOCK: source-image faithful transform
+				- 사용자가 올린 원본 이미지의 핵심 오브젝트 / 구도 / 비례는 반드시 유지
+				- 배경, 조명, 분위기만 변형 — 메인 제품은 그대로
+				- 새로운 오브젝트를 추가하지 말 것 (원본 충실도 최우선)
+				""";
+			case FREEFORM -> """
+				- 카테고리 LOCK: free creative direction
+				- 사용자 설명을 최대한 반영하면서 3개를 명확히 다른 방향으로
+				- 한 추천은 conservative (안전한 정공법), 한 추천은 experimental (대담한 시도)
+				- 마지막 한 추천은 위 둘의 중간 어딘가
+				""";
+		};
 	}
 
 	/**
@@ -111,11 +169,30 @@ public class PromptCompileService {
 	}
 
 	public String compileImageGenerationPrompt(ImageJob job, ImageJobVariant variant) {
+		String brief = buildPhase1Brief(job, variant);
+		// §26: Phase 2 — GPT (gpt-4.1) 로 한 번 더 컴파일해서 Nanobanana 용 풍부한 프롬프트 생성.
+		// GPT 호출 실패 시 brief 를 그대로 사용 (fallback).
+		try {
+			String compiled = openAiChatService.complete(PHASE2_SYSTEM_PROMPT, brief);
+			if (compiled != null && !compiled.isBlank()) {
+				return compiled.trim();
+			}
+		} catch (Exception e) {
+			log.warn("[PromptCompile/Phase2] GPT 컴파일 실패, brief 폴백: {}", e.getMessage());
+		}
+		return brief;
+	}
+
+	private String buildPhase1Brief(ImageJob job, ImageJobVariant variant) {
 		GlobalLock lock = variant.getGlobalLock();
 
 		StringBuilder sb = new StringBuilder();
 		sb.append("Premium product photography.\n");
 		sb.append("Concept: ").append(variant.getRecommendationTitle()).append(".\n");
+		if (variant.getRecommendationDescription() != null
+			&& !variant.getRecommendationDescription().isBlank()) {
+			sb.append("Concept detail: ").append(variant.getRecommendationDescription()).append("\n");
+		}
 
 		if (lock != null) {
 			if (lock.background() != null) sb.append("Background: ").append(lock.background()).append(".\n");
@@ -127,7 +204,9 @@ public class PromptCompileService {
 		if (job.getAngle() != null) {
 			sb.append("Camera angle: ").append(job.getAngle().getValue()).append(".\n");
 		}
-		sb.append("Lighting style preference: ").append(job.getLighting().getValue()).append(".\n");
+		if (job.getLighting() != null) {
+			sb.append("Lighting style preference: ").append(job.getLighting().getValue()).append(".\n");
+		}
 		sb.append("Aspect ratio: ").append(job.getRatio().getValue()).append(".\n");
 
 		if (job.getDescription() != null && !job.getDescription().isBlank()) {

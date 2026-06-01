@@ -55,9 +55,9 @@ public record ImageJobResponse(
 			return new JobView(
 				j.getJobSlug(),
 				j.getUser().getId(),
-				j.getRequest().getRequestSlug(),
-				j.getStyle().getValue(),
-				j.getStyle().getLabel(),
+				j.getRequest() == null ? null : j.getRequest().getRequestSlug(),
+				j.getStyle() == null ? null : j.getStyle().getValue(),
+				j.getStyle() == null ? null : j.getStyle().getLabel(),
 				j.getProductImageUrl(),
 				j.getProductImagePath(),
 				j.getProductImageUrls(),
@@ -71,7 +71,7 @@ public record ImageJobResponse(
 				j.getDescription(),
 				j.getCorePoints(),
 				j.getAngle() == null ? null : j.getAngle().getValue(),
-				j.getLighting().getValue(),
+				j.getLighting() == null ? null : j.getLighting().getValue(),
 				j.getRatio().getValue(),
 				j.getVariants().stream()
 					.map(v -> VariantView.of(v, variantUrls.get(v.getId())))
@@ -80,7 +80,7 @@ public record ImageJobResponse(
 				j.getFavoriteEditIds() != null ? j.getFavoriteEditIds() : List.of(),
 				j.getStatus().getValue(),
 				j.getErrorMessage(),
-				"business",
+				j.getSource() != null ? j.getSource() : "business",
 				j.getCreatedAt() != null ? j.getCreatedAt().toInstant() : null,
 				j.getUpdatedAt() != null ? j.getUpdatedAt().toInstant() : null
 			);

@@ -46,20 +46,29 @@ public class TemplateRequestController {
 
 	@GetMapping("/me/template-jobs")
 	@Operation(summary = "템플릿 결과 폴링 (커서 기반)",
-		description = "since(ISO instant) 이후 업데이트된 잡을 updatedAt 오름차순으로 반환. 없으면 최신 limit개.")
+		description = "since(ISO instant) 이후 업데이트된 잡을 updatedAt 오름차순으로 반환. 없으면 최신 limit개. "
+			+ "templateId 가 있으면 해당 템플릿 잡만 필터링 (§11).")
 	public ResponseEntity<Map<String, Object>> templateJobs(
 		@AuthenticationPrincipal Long userId,
 		@RequestParam(value = "since", required = false) String since,
-		@RequestParam(value = "limit", required = false, defaultValue = "50") int limit
+		@RequestParam(value = "limit", required = false, defaultValue = "50") int limit,
+		@RequestParam(value = "templateId", required = false) String templateId
 	) {
 		int capped = Math.min(Math.max(limit, 1), 200);
+		boolean hasTemplateFilter = templateId != null && !templateId.isBlank();
 		List<VideoTemplate> jobs;
 		if (since != null && !since.isBlank()) {
 			Timestamp ts = Timestamp.from(Instant.parse(since));
-			jobs = videoRepository.findAllByUser_IdAndUpdatedAtGreaterThanOrderByUpdatedAtAsc(
-				userId, ts, PageRequest.of(0, capped));
+			jobs = hasTemplateFilter
+				? videoRepository.findAllByUser_IdAndTemplateIdAndUpdatedAtGreaterThanOrderByUpdatedAtAsc(
+					userId, templateId, ts, PageRequest.of(0, capped))
+				: videoRepository.findAllByUser_IdAndUpdatedAtGreaterThanOrderByUpdatedAtAsc(
+					userId, ts, PageRequest.of(0, capped));
 		} else {
-			jobs = videoRepository.findAllByUser_IdOrderByUpdatedAtDesc(userId, PageRequest.of(0, capped));
+			jobs = hasTemplateFilter
+				? videoRepository.findAllByUser_IdAndTemplateIdOrderByUpdatedAtDesc(
+					userId, templateId, PageRequest.of(0, capped))
+				: videoRepository.findAllByUser_IdOrderByUpdatedAtDesc(userId, PageRequest.of(0, capped));
 		}
 		List<VideoJobResponse> items = jobs.stream().map(VideoJobResponse::of).toList();
 		String nextCursor = jobs.isEmpty() ? since

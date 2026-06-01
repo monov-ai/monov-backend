@@ -52,12 +52,17 @@ public class ImageJob extends BaseTimeEntity {
 	@JoinColumn(name = "user_id", nullable = false)
 	private User user;
 
+	/** user_upload 흐름은 null 가능 (추천 없이 사용자가 업로드한 이미지 1장을 V1 으로 등록). */
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "request_id", nullable = false)
+	@JoinColumn(name = "request_id")
 	private RecommendationRequest request;
 
+	/** "recommendation" (기본) | "user_upload" (V1=사용자 업로드). */
+	@Column(length = 30)
+	private String source;
+
 	@Enumerated(EnumType.STRING)
-	@Column(nullable = false, length = 20)
+	@Column(length = 20)
 	private Style style;
 
 	@Column(columnDefinition = "TEXT")
@@ -100,7 +105,7 @@ public class ImageJob extends BaseTimeEntity {
 	private Angle angle;
 
 	@Enumerated(EnumType.STRING)
-	@Column(nullable = false, length = 20)
+	@Column(length = 20)
 	private Lighting lighting;
 
 	@Enumerated(EnumType.STRING)
@@ -110,6 +115,9 @@ public class ImageJob extends BaseTimeEntity {
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private JobStatus status;
+
+	/** §18/§29: SOURCE_IMAGE / FREEFORM 흐름의 OpenAI 호출 시 배경 투명 옵션. */
+	private Boolean transparentBackground;
 
 	@Column(columnDefinition = "TEXT")
 	private String errorMessage;
@@ -130,17 +138,20 @@ public class ImageJob extends BaseTimeEntity {
 	@Builder(access = AccessLevel.PRIVATE)
 	private ImageJob(
 		String jobSlug, User user, RecommendationRequest request,
+		String source,
 		Style style, String description,
 		String productImageUrl, String productImagePath, String referenceImageUrl,
 		List<String> productImageUrls, List<String> productImagePaths,
 		List<String> referenceImageUrls, List<String> referenceImagePaths,
 		CorePoints corePoints,
 		Angle angle, Lighting lighting, Ratio ratio,
-		JobStatus status
+		JobStatus status,
+		Boolean transparentBackground
 	) {
 		this.jobSlug = jobSlug;
 		this.user = user;
 		this.request = request;
+		this.source = source;
 		this.style = style;
 		this.description = description;
 		this.productImageUrl = productImageUrl;
@@ -155,16 +166,19 @@ public class ImageJob extends BaseTimeEntity {
 		this.lighting = lighting;
 		this.ratio = ratio;
 		this.status = status;
+		this.transparentBackground = transparentBackground;
 	}
 
 	public static ImageJob create(
 		String jobSlug, User user, RecommendationRequest request,
-		Angle angle, Lighting lighting, Ratio ratio
+		Angle angle, Lighting lighting, Ratio ratio,
+		Boolean transparentBackground
 	) {
 		return ImageJob.builder()
 			.jobSlug(jobSlug)
 			.user(user)
 			.request(request)
+			.source("recommendation")
 			.style(request.getStyle())
 			.description(request.getDescription())
 			.productImageUrl(request.getProductImageUrl())
@@ -179,7 +193,34 @@ public class ImageJob extends BaseTimeEntity {
 			.lighting(lighting)
 			.ratio(ratio)
 			.status(JobStatus.PENDING)
+			.transparentBackground(transparentBackground)
 			.build();
+	}
+
+	public boolean isTransparentBackground() {
+		return Boolean.TRUE.equals(transparentBackground);
+	}
+
+	/**
+	 * §15: 사용자가 업로드한 이미지 한 장을 V1 으로 등록 (Nanobanana 호출 없음).
+	 * status=COMPLETED 로 즉시 생성. request/style/description/lighting 은 null.
+	 */
+	public static ImageJob createFromUpload(
+		String jobSlug, User user, Ratio ratio,
+		String productImageUrl, String productImagePath
+	) {
+		ImageJob job = ImageJob.builder()
+			.jobSlug(jobSlug)
+			.user(user)
+			.source("user_upload")
+			.productImageUrl(productImageUrl)
+			.productImagePath(productImagePath)
+			.productImageUrls(productImageUrl == null ? null : List.of(productImageUrl))
+			.productImagePaths(productImagePath == null ? null : List.of(productImagePath))
+			.ratio(ratio)
+			.status(JobStatus.COMPLETED)
+			.build();
+		return job;
 	}
 
 	public void addVariant(ImageJobVariant variant) {

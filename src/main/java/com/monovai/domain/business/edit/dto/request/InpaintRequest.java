@@ -24,7 +24,9 @@ public record InpaintRequest(
 	@NotNull(message = "maskHeight 는 필수입니다.")
 	Integer maskHeight,
 
-	String size
+	String size,
+
+	Boolean transparentBackground
 ) {
 	public String resolvedBaseId() {
 		if (baseId != null && !baseId.isBlank()) return baseId;

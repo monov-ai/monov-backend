@@ -10,8 +10,10 @@ import com.monovai.domain.business.imagejob.entity.ImageJobVariant;
 import com.monovai.domain.business.imagejob.entity.enums.JobStatus;
 import com.monovai.domain.business.imagejob.repository.ImageJobRepository;
 import com.monovai.domain.business.prompt.service.PromptCompileService;
+import com.monovai.domain.business.recommendation.entity.enums.Style;
 import com.monovai.external.nanobanana.dto.NanobananaResult;
 import com.monovai.external.nanobanana.service.NanobananaService;
+import com.monovai.external.openai.service.OpenAiImageEditService;
 import com.monovai.infrastructure.s3.service.S3Service;
 
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,11 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 별도 빈으로 분리해서 Spring AOP 프록시를 거치게 함.
  * @Transactional 이 self-invocation 함정 없이 정상 적용되려면 외부 빈에서 호출되어야 함.
+ *
+ * §29 라우팅 정책:
+ *  - STUDIO / BANNER_EVENT → Nanobanana
+ *  - SOURCE_IMAGE → OpenAI (transparent ON → gpt-image-1, OFF → gpt-image-2)
+ *  - FREEFORM → OpenAI gpt-image-2 (transparent ON 이어도 base 없으면 gpt-image-2 폴백)
  */
 @Component
 @RequiredArgsConstructor
@@ -27,9 +34,11 @@ import lombok.extern.slf4j.Slf4j;
 public class ImageGenerationProcessor {
 
 	private static final Duration NANOBANANA_INPUT_TTL = Duration.ofMinutes(15);
+	private static final Duration OPENAI_INPUT_TTL = Duration.ofMinutes(15);
 
 	private final ImageJobRepository jobRepository;
 	private final NanobananaService nanobananaService;
+	private final OpenAiImageEditService openAiImageEditService;
 	private final PromptCompileService promptCompileService;
 	private final S3Service s3Service;
 
@@ -56,14 +65,52 @@ public class ImageGenerationProcessor {
 			String prompt = promptCompileService.compileImageGenerationPrompt(job, variant);
 			variant.markRunning(prompt);
 
-			String sourceImageUrl = resolveSourceImageUrl(job);
-			NanobananaResult result = nanobananaService.generateImage(prompt, sourceImageUrl);
+			NanobananaResult result = routeAndGenerate(job, prompt);
 			variant.markSucceeded(result.taskId(), result.s3Key());
 		} catch (Exception e) {
 			log.error("[ImageGenProcessor] variant 실패: jobId={}, variantSeq={}",
 				job.getId(), variant.getVariantSeq(), e);
 			variant.markFailed(e.getMessage());
 		}
+	}
+
+	/** §29 정책에 따라 OpenAI / Nanobanana 분기. */
+	private NanobananaResult routeAndGenerate(ImageJob job, String prompt) {
+		Style style = job.getStyle();
+		String sourceImageUrl = resolveSourceImageUrl(job);
+		boolean transparent = job.isTransparentBackground();
+		String ratio = job.getRatio() == null ? null : job.getRatio().getValue();
+		String size = mapRatioToSize(ratio);
+
+		if (style == Style.SOURCE_IMAGE) {
+			if (sourceImageUrl == null || sourceImageUrl.isBlank()) {
+				log.warn("[ImageGenProcessor] SOURCE_IMAGE 인데 source URL 없음 — gpt-image-2 generate 로 폴백");
+				return openAiImageEditService.generate(prompt, size);
+			}
+			return openAiImageEditService.editWithSource(prompt, sourceImageUrl, size, transparent);
+		}
+
+		if (style == Style.FREEFORM) {
+			if (sourceImageUrl != null && !sourceImageUrl.isBlank()) {
+				// FREEFORM 인데 사용자가 product 이미지를 올린 경우: editWithSource 로 활용. transparent 옵션 반영.
+				return openAiImageEditService.editWithSource(prompt, sourceImageUrl, size, transparent);
+			}
+			return openAiImageEditService.generate(prompt, size);
+		}
+
+		// STUDIO, BANNER_EVENT, 그 외 (style == null 인 user_upload 흐름은 generation 안 옴) → Nanobanana
+		return nanobananaService.generateImage(prompt, sourceImageUrl);
+	}
+
+	/** OpenAI 가 받는 size 는 1024x1024 / 1024x1536 / 1536x1024 / auto. ratio 로 매핑. */
+	private static String mapRatioToSize(String ratio) {
+		if (ratio == null) return "auto";
+		return switch (ratio) {
+			case "1:1" -> "1024x1024";
+			case "9:16", "3:4" -> "1024x1536";
+			case "16:9", "4:3" -> "1536x1024";
+			default -> "auto";
+		};
 	}
 
 	/**

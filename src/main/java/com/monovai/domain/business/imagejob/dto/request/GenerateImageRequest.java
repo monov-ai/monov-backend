@@ -22,7 +22,11 @@ public record GenerateImageRequest(
 	String lighting,
 
 	@NotBlank(message = "ratio 는 필수입니다.")
-	String ratio
+	String ratio,
+
+	// §18/§29: SOURCE_IMAGE 스타일에서 true 면 OpenAI gpt-image-1 (배경 투명),
+	// false 면 gpt-image-2. FREEFORM/STUDIO/BANNER_EVENT 에서는 무시.
+	Boolean transparentBackground
 ) {
 
 	public List<String> normalizedRecommendationIds() {

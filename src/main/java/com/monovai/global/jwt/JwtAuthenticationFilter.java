@@ -41,7 +41,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		"/api/v1/auth/sign-in",
 		"/api/v1/auth/sign-up",
 		"/api/v1/auth/login-uri",
-		"/api/v1/auth/reissue"
+		"/api/v1/auth/reissue",
+		// §17 블로그 공개 GET 라우트
+		"/api/v1/blog/posts",
+		"/api/v1/blog/posts/**"
 	);
 
 	private static final PathMatcher MATCHER = new AntPathMatcher();
